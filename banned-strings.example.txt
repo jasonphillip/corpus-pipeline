@@ -1,0 +1,8 @@
+# Retired or rejected claims. One entry per line.
+# Plain lines are case-insensitive substrings. REGEX: lines are regular expressions.
+# Replace these examples with claims that your own downstream publishing step must omit.
+#
+# 20x faster
+# zero operational risk
+# REGEX:\b99\.9\s*%\s*accurate\b
+

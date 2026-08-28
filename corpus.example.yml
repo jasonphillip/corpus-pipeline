@@ -1,0 +1,66 @@
+# corpus-pipeline configuration. Copy to corpus.yml and edit.
+
+paths:
+  corpus_root: ~/.corpus
+  status_file: ~/.corpus/corpus-index.md
+  snapshot_root: ~/.corpus/snapshots
+  health_root: ~/.corpus/health
+
+services:
+  embedding:
+    # auto: use this OpenAI-compatible endpoint when healthy, else use Ollama.
+    # openai: require this endpoint. ollama: always use Ollama /api/embed.
+    provider: auto
+    url: http://localhost:8000/v1/embeddings
+    secondary_url: ""
+    api_key: ""
+  ollama:
+    base_url: http://localhost:11434
+  chat:
+    # Optional OpenAI-compatible /v1/chat/completions endpoint.
+    # Empty means use Ollama /api/generate for LLM steps.
+    url: ""
+    model: ""
+    api_key: ""
+  reranker:
+    # Optional llama.cpp-compatible cross-encoder endpoint.
+    url: http://localhost:8003/v1/rerank
+
+models:
+  openai_embedding: local-embedding-model
+  ollama_embedding: nomic-embed-text-v2-moe
+  scoring: qwen3:14b
+  triage: qwen3:8b
+
+embedding:
+  # These initialize sqlite-vec. The live response is probed before insertion.
+  openai_dims: 2560
+  ollama_dims: 768
+
+chunking:
+  default_size: 1500
+  default_overlap: 200
+  openai_size: 6000
+  openai_overlap: 600
+
+search:
+  vector_weight: 0.7
+  bm25_weight: 0.3
+  mmr_lambda: 0.7
+  top_k: 30
+  per_source_limit: 3
+  recency_weight: 0.15
+  rerank: true
+  query_expansion: true
+  smart_min_chunks: 500
+  exclude_captions: false
+  caption_prefix: "[Figure caption"
+  primary_corpora: [my-docs, papers, codebase]
+
+processing:
+  context_token_budget: 100000
+
+acquisition:
+  reader_prefix: https://r.jina.ai/
+  max_file_mb: 10
+

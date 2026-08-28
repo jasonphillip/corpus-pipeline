@@ -1,0 +1,21 @@
+$ cp corpus.example.yml corpus.yml
+$ mkdir -p ~/.corpus/my-docs/raw/example
+$ cp examples/docs/*.md ~/.corpus/my-docs/raw/example/
+$ corpus process my-docs rag
+Embedding: local-embedding-model (OpenAI-compatible)
+Files to process: 3
+Processing complete for 'my-docs'
+
+$ corpus search my-docs "how does hybrid retrieval work" --top-k 3
+Query: how does hybrid retrieval work
+Captions: include
+### Result 1 — score: 0.xxx
+**Source:** example/2024-06-retrieval.md
+
+$ corpus first-mention my-docs "vector index" --no-expand --limit 2
+# Earliest mentions: `vector index` in `my-docs`
+| # | Date | Source | Match | Snippet |
+| 1 | 2024-01-15 | `example/2024-01-setup.md` | text | ... |
+
+The scores and timing depend on the configured local models and hardware.
+
