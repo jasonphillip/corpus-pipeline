@@ -1,0 +1,32 @@
+# corpus-pipeline
+
+> A local document pipeline that records sources, acquires content, chunks and embeds documents, stores corpus data in SQLite, and combines full-text with vector retrieval.
+
+## Project documentation
+
+- [README.md](README.md): Defines the architecture, supported workflows, storage layout, and operational limits.
+- [EXTRACT-NOTES.md](EXTRACT-NOTES.md): Records source provenance, generalization decisions, and remaining limits.
+- [LICENSE](LICENSE): Contains the MIT license terms.
+
+## Configuration and packaging
+
+- [corpus.example.yml](corpus.example.yml): Provides example paths, local service endpoints, model settings, chunking, and search controls.
+- [pyproject.toml](pyproject.toml): Declares package metadata, dependencies, optional extras, and the `corpus` command.
+- [banned-strings.example.txt](banned-strings.example.txt): Shows an optional content-exclusion pattern file.
+
+## Entry points and core implementation
+
+- [corpus_pipeline/cli.py](corpus_pipeline/cli.py): Dispatches acquisition, processing, search, chronology, refresh, health, and maintenance commands.
+- [corpus_pipeline/__main__.py](corpus_pipeline/__main__.py): Runs the command-line interface as a Python module.
+- [corpus_pipeline/config.py](corpus_pipeline/config.py): Loads YAML configuration and environment overrides.
+- [corpus_pipeline/corpus_db.py](corpus_pipeline/corpus_db.py): Manages SQLite chunk, full-text, vector, and source-state storage.
+- [corpus_pipeline/embedder.py](corpus_pipeline/embedder.py): Calls OpenAI-compatible or Ollama embedding services and checks vector dimensions.
+- [corpus_pipeline/commands/process.py](corpus_pipeline/commands/process.py): Performs incremental cleaning, chunking, embedding, and index updates.
+- [corpus_pipeline/commands/search.py](corpus_pipeline/commands/search.py): Runs hybrid and federated retrieval with optional expansion and reranking.
+
+## Examples and tests
+
+- [examples/quickstart.txt](examples/quickstart.txt): Shows an abbreviated local workflow and expected output shape.
+- [examples/docs/2024-06-retrieval.md](examples/docs/2024-06-retrieval.md): Supplies synthetic retrieval content for the quickstart.
+- [tests/test_search.py](tests/test_search.py): Checks search parsing, rank fusion, query construction, and caption filtering.
+- [tests/test_services.py](tests/test_services.py): Marks service-dependent end-to-end coverage and its prerequisites.

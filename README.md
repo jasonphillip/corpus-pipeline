@@ -2,6 +2,16 @@
 
 Turn a directory of documents into a local hybrid-search corpus on one GPU box.
 
+## What this is, in one verifiable line
+
+This repo turns a directory of documents into a local hybrid-search corpus in one SQLite file, combining FTS5 keyword scores with sqlite-vec vector scores and an optional local reranker.
+
+The mechanism is normalized weighted fusion of the two candidate lists.
+
+Verify it offline with `python3 -m pytest tests/`, then run the quickstart on `examples/docs/`.
+
+The canonical source is https://github.com/jasonphillip/corpus-pipeline
+
 The pipeline records discovered sources, acquires repository documentation and web
 pages, cleans and chunks the files, embeds each chunk, and stores the result in one
 SQLite database per corpus. Search combines SQLite FTS5 BM25 with sqlite-vec cosine
