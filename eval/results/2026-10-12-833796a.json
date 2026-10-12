@@ -1,12 +1,12 @@
 {
-  "created_utc": "2026-10-12T19:52:00.540152+00:00",
-  "git_revision": "87bdf68",
+  "created_utc": "2026-10-12T19:58:12.375311+00:00",
+  "git_revision": "833796a",
   "package_version": "0.1.0",
   "python_version": "3.13.11",
   "sqlite_vec_version": "0.1.9",
-  "embedder": "fake (mechanics only)",
-  "embedding_model_id": "fake (mechanics only)",
-  "embedding_dims_configured": 2,
+  "embedder": "Qwen3-Embedding-4B",
+  "embedding_model_id": "Qwen3-Embedding-4B",
+  "embedding_dims_configured": 2560,
   "chunk_settings": {
     "size": 6000,
     "overlap": 600
@@ -18,10 +18,10 @@
   "hardware": {
     "platform": "Linux-7.0.0-1019-nvidia-aarch64-with-glibc2.39",
     "machine": "aarch64",
-    "gpu": null
+    "gpu": "NVIDIA GB10"
   },
-  "indexing_wall_seconds": 0.08336235396564007,
-  "chunks_db_bytes": 499712,
+  "indexing_wall_seconds": 8.683961685979739,
+  "chunks_db_bytes": 10985472,
   "split": {
     "eval_queries": 30,
     "tune_queries": 10,
@@ -47,34 +47,41 @@
       "recall_at_5": 0.25,
       "recall_at_10": 0.25,
       "ndcg_at_10": 0.25377157309218196,
-      "p50_latency_ms": 0.10752194793894887,
-      "p95_latency_ms": 0.15372521011158813
+      "p50_latency_ms": 0.24131499230861664,
+      "p95_latency_ms": 0.35381813067942836
     },
     "vector": {
       "status": "run",
       "query_count": 30,
       "warmup_queries": 1,
       "relevant_document_denominator": "judged relevant documents per query",
-      "recall_at_5": 0.16666666666666666,
-      "recall_at_10": 0.31666666666666665,
-      "ndcg_at_10": 0.15281560990993368,
-      "p50_latency_ms": 0.1796659198589623,
-      "p95_latency_ms": 0.18778974772430956
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 0.9358123185668492,
+      "p50_latency_ms": 43.38874254608527,
+      "p95_latency_ms": 45.98432644852437
     },
     "hybrid": {
       "status": "run",
       "query_count": 30,
       "warmup_queries": 1,
       "relevant_document_denominator": "judged relevant documents per query",
-      "recall_at_5": 0.2833333333333333,
-      "recall_at_10": 0.3333333333333333,
-      "ndcg_at_10": 0.30561295266487815,
-      "p50_latency_ms": 0.4445409867912531,
-      "p95_latency_ms": 0.49849076312966634
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 0.9850216847573215,
+      "p50_latency_ms": 43.11156296171248,
+      "p95_latency_ms": 46.02848286740482
     },
     "hybrid_rerank": {
-      "status": "unrun",
-      "reason": "no Ollama or reranker explicitly configured"
+      "status": "run",
+      "query_count": 30,
+      "warmup_queries": 1,
+      "relevant_document_denominator": "judged relevant documents per query",
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 0.9919720789148188,
+      "p50_latency_ms": 1744.2827110062353,
+      "p95_latency_ms": 3106.535704806444
     }
   },
   "per_query": {
@@ -94,15 +101,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
+          "recall_at_5": 1.0,
           "recall_at_10": 1.0,
-          "ndcg_at_10": 0.3333333333333333,
+          "ndcg_at_10": 0.6309297535714575,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-disk-full-cleanup.md": 7
+            "runbook-disk-full-cleanup.md": 2
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -131,19 +147,28 @@
         "vector": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-queue-backlog-drain.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
           "ndcg_at_10": 0.6309297535714575,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
             "runbook-queue-backlog-drain.md": 2
           }
         },
-        "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-queue-backlog-drain.md": 44
+            "runbook-queue-backlog-drain.md": 1
           }
         }
       }
@@ -164,15 +189,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "hw-lna-ls-lna-0133.md": 28
+            "hw-lna-ls-lna-0133.md": 1
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-lna-ls-lna-0133.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -199,15 +233,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
+          "recall_at_5": 1.0,
           "recall_at_10": 1.0,
-          "ndcg_at_10": 0.31546487678572877,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-database-failover.md": 8
+            "runbook-database-failover.md": 1
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-database-failover.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -234,15 +277,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "api-query-flights.md": 44
+            "api-query-flights.md": 2
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-query-flights.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -269,15 +321,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "config-decoder.md": 41
+            "config-decoder.md": 2
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "config-decoder.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -304,15 +365,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "incident-2026-03-14-snowstorm-power.md": 21
+            "incident-2026-03-14-snowstorm-power.md": 2
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-03-14-snowstorm-power.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -341,19 +411,28 @@
         "vector": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
-          "ndcg_at_10": 0.5,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-node-provisioning.md": 3
+            "runbook-node-provisioning.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-node-provisioning.md": 43
+            "runbook-node-provisioning.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-node-provisioning.md": 1
           }
         }
       }
@@ -374,21 +453,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "hw-cellular-modem.md": 31
+            "hw-cellular-modem.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "hw-cellular-modem.md": 15
+            "hw-cellular-modem.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-cellular-modem.md": 1
           }
         }
       }
@@ -409,15 +497,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "process-change-management.md": 15
+            "process-change-management.md": 2
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-change-management.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -444,21 +541,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "onboarding-dev-environment.md": 17
+            "onboarding-dev-environment.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "onboarding-dev-environment.md": 29
+            "onboarding-dev-environment.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "onboarding-dev-environment.md": 1
           }
         }
       }
@@ -479,15 +585,24 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "api-admin-control.md": 45
+            "api-admin-control.md": 1
           }
         },
         "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-admin-control.md": 1
+          }
+        },
+        "hybrid_rerank": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
           "ndcg_at_10": 1.0,
@@ -523,12 +638,21 @@
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-receiver-restart.md": 45
+            "runbook-receiver-restart.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-receiver-restart.md": 1
           }
         }
       }
@@ -549,21 +673,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "incident-2025-12-17-cert-expiry.md": 24
+            "incident-2025-12-17-cert-expiry.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "incident-2025-12-17-cert-expiry.md": 22
+            "incident-2025-12-17-cert-expiry.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2025-12-17-cert-expiry.md": 1
           }
         }
       }
@@ -584,21 +717,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "incident-2026-01-22-gps-almanac.md": 23
+            "incident-2026-01-22-gps-almanac.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "incident-2026-01-22-gps-almanac.md": 23
+            "incident-2026-01-22-gps-almanac.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-01-22-gps-almanac.md": 1
           }
         }
       }
@@ -619,21 +761,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
+          "recall_at_5": 1.0,
           "recall_at_10": 1.0,
-          "ndcg_at_10": 0.3562071871080222,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-firmware-update.md": 6
+            "runbook-firmware-update.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-firmware-update.md": 40
+            "runbook-firmware-update.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-firmware-update.md": 1
           }
         }
       }
@@ -656,19 +807,28 @@
         "vector": {
           "recall_at_5": 1.0,
           "recall_at_10": 1.0,
-          "ndcg_at_10": 0.38685280723454163,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-gps-lock-loss.md": 5
+            "runbook-gps-lock-loss.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-gps-lock-loss.md": 41
+            "runbook-gps-lock-loss.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-gps-lock-loss.md": 1
           }
         }
       }
@@ -691,23 +851,33 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "config-retention-policy.md": 38,
-            "decision-0012-retention-reduction.md": 34
+            "config-retention-policy.md": 2,
+            "decision-0012-retention-reduction.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.5,
-          "ndcg_at_10": 0.19342640361727081,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "config-retention-policy.md": 8,
-            "decision-0012-retention-reduction.md": 12
+            "config-retention-policy.md": 2,
+            "decision-0012-retention-reduction.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "config-retention-policy.md": 1,
+            "decision-0012-retention-reduction.md": 2
           }
         }
       }
@@ -728,21 +898,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
+          "recall_at_5": 1.0,
           "recall_at_10": 1.0,
-          "ndcg_at_10": 0.3333333333333333,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-disk-full-cleanup.md": 7
+            "runbook-disk-full-cleanup.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-disk-full-cleanup.md": 39
+            "runbook-disk-full-cleanup.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
           }
         }
       }
@@ -763,21 +942,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "process-incident-review.md": 14
+            "process-incident-review.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "process-incident-review.md": 32
+            "process-incident-review.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
           }
         }
       }
@@ -800,22 +988,32 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "hw-lr4-receiver-board.md": 27,
-            "incident-2026-08-19-bad-firmware-rollout.md": 18
+            "hw-lr4-receiver-board.md": 2,
+            "incident-2026-08-19-bad-firmware-rollout.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.5,
-          "recall_at_10": 0.5,
-          "ndcg_at_10": 0.6131471927654584,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "hw-lr4-receiver-board.md": 20,
+            "hw-lr4-receiver-board.md": 2,
+            "incident-2026-08-19-bad-firmware-rollout.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-lr4-receiver-board.md": 3,
             "incident-2026-08-19-bad-firmware-rollout.md": 1
           }
         }
@@ -839,23 +1037,33 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.5,
-          "recall_at_10": 0.5,
-          "ndcg_at_10": 0.3065735963827292,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "decision-0004-fleet-site-ids.md": 37,
-            "runbook-node-provisioning.md": 3
+            "decision-0004-fleet-site-ids.md": 1,
+            "runbook-node-provisioning.md": 2
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.5,
-          "ndcg_at_10": 0.18457569677956817,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "decision-0004-fleet-site-ids.md": 9,
-            "runbook-node-provisioning.md": 43
+            "decision-0004-fleet-site-ids.md": 1,
+            "runbook-node-provisioning.md": 2
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0004-fleet-site-ids.md": 1,
+            "runbook-node-provisioning.md": 2
           }
         }
       }
@@ -876,21 +1084,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "process-incident-review.md": 14
+            "process-incident-review.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "process-incident-review.md": 32
+            "process-incident-review.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
           }
         }
       }
@@ -911,21 +1128,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-antenna-realign.md": 11
+            "runbook-antenna-realign.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-antenna-realign.md": 35
+            "runbook-antenna-realign.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
           }
         }
       }
@@ -948,23 +1174,33 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.5,
-          "recall_at_10": 0.5,
-          "ndcg_at_10": 0.23719771276929622,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "hw-gps-timing-module.md": 29,
-            "runbook-gps-lock-loss.md": 5
+            "hw-gps-timing-module.md": 2,
+            "runbook-gps-lock-loss.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "hw-gps-timing-module.md": 17,
-            "runbook-gps-lock-loss.md": 41
+            "hw-gps-timing-module.md": 2,
+            "runbook-gps-lock-loss.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-gps-timing-module.md": 1,
+            "runbook-gps-lock-loss.md": 2
           }
         }
       }
@@ -987,23 +1223,33 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "decision-0007-udp-primary-transport.md": 35,
-            "incident-2025-11-03-packet-loss.md": 25
+            "decision-0007-udp-primary-transport.md": 2,
+            "incident-2025-11-03-packet-loss.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "decision-0007-udp-primary-transport.md": 11,
-            "incident-2025-11-03-packet-loss.md": 21
+            "decision-0007-udp-primary-transport.md": 2,
+            "incident-2025-11-03-packet-loss.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0007-udp-primary-transport.md": 3,
+            "incident-2025-11-03-packet-loss.md": 1
           }
         }
       }
@@ -1026,23 +1272,33 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.5,
-          "ndcg_at_10": 0.18457569677956817,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "decision-0006-cert-automation.md": 36,
-            "runbook-cert-renewal.md": 9
+            "decision-0006-cert-automation.md": 3,
+            "runbook-cert-renewal.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.5,
-          "ndcg_at_10": 0.17723928678404774,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "decision-0006-cert-automation.md": 10,
-            "runbook-cert-renewal.md": 37
+            "decision-0006-cert-automation.md": 3,
+            "runbook-cert-renewal.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0006-cert-automation.md": 3,
+            "runbook-cert-renewal.md": 1
           }
         }
       }
@@ -1063,21 +1319,30 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-antenna-realign.md": 11
+            "runbook-antenna-realign.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "runbook-antenna-realign.md": 35
+            "runbook-antenna-realign.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
           }
         }
       }
@@ -1100,23 +1365,33 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "incident-2026-06-05-false-snr-alerts.md": 19,
-            "runbook-alert-silence.md": 12
+            "incident-2026-06-05-false-snr-alerts.md": 1,
+            "runbook-alert-silence.md": 2
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 2,
           "relevant_doc_ranks": {
-            "incident-2026-06-05-false-snr-alerts.md": 27,
-            "runbook-alert-silence.md": 34
+            "incident-2026-06-05-false-snr-alerts.md": 1,
+            "runbook-alert-silence.md": 2
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "incident-2026-06-05-false-snr-alerts.md": 1,
+            "runbook-alert-silence.md": 2
           }
         }
       }
@@ -1137,186 +1412,34 @@
           }
         },
         "vector": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "incident-2026-04-30-dashboard-outage.md": 20
+            "incident-2026-04-30-dashboard-outage.md": 1
           }
         },
         "hybrid": {
-          "recall_at_5": 0.0,
-          "recall_at_10": 0.0,
-          "ndcg_at_10": 0.0,
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
           "relevant_document_count": 1,
           "relevant_doc_ranks": {
-            "incident-2026-04-30-dashboard-outage.md": 26
+            "incident-2026-04-30-dashboard-outage.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-04-30-dashboard-outage.md": 1
           }
         }
       }
     }
   },
-  "failure_examples": [
-    {
-      "id": "q02",
-      "query": "queue_depth_high threshold",
-      "missed_docs": [
-        "runbook-queue-backlog-drain.md"
-      ]
-    },
-    {
-      "id": "q09",
-      "query": "enrollment token expiry",
-      "missed_docs": [
-        "runbook-node-provisioning.md"
-      ]
-    },
-    {
-      "id": "q11",
-      "query": "SIM 2 failover",
-      "missed_docs": [
-        "hw-cellular-modem.md"
-      ]
-    },
-    {
-      "id": "q13",
-      "query": "dev stack port offset",
-      "missed_docs": [
-        "onboarding-dev-environment.md"
-      ]
-    },
-    {
-      "id": "q16",
-      "query": "How many times may I restart a receiver in ten minutes?",
-      "missed_docs": [
-        "runbook-receiver-restart.md"
-      ]
-    },
-    {
-      "id": "q17",
-      "query": "What caused the certificate outage in December 2025?",
-      "missed_docs": [
-        "incident-2025-12-17-cert-expiry.md"
-      ]
-    },
-    {
-      "id": "q18",
-      "query": "Why did 9 nodes report wrong timestamps in January 2026?",
-      "missed_docs": [
-        "incident-2026-01-22-gps-almanac.md"
-      ]
-    },
-    {
-      "id": "q19",
-      "query": "What time window is used for firmware updates?",
-      "missed_docs": [
-        "runbook-firmware-update.md"
-      ]
-    },
-    {
-      "id": "q21",
-      "query": "How many satellites does the timing module need for a lock?",
-      "missed_docs": [
-        "runbook-gps-lock-loss.md"
-      ]
-    },
-    {
-      "id": "q22",
-      "query": "How many days of raw frames do we keep?",
-      "missed_docs": [
-        "config-retention-policy.md",
-        "decision-0012-retention-reduction.md"
-      ]
-    },
-    {
-      "id": "q23",
-      "query": "At what disk usage does the alert fire on a node?",
-      "missed_docs": [
-        "runbook-disk-full-cleanup.md"
-      ]
-    },
-    {
-      "id": "q24",
-      "query": "How soon after an incident must the review be held?",
-      "missed_docs": [
-        "process-incident-review.md"
-      ]
-    },
-    {
-      "id": "q26",
-      "query": "Which board revision entered a boot loop on firmware 2.8.2?",
-      "missed_docs": [
-        "hw-lr4-receiver-board.md"
-      ]
-    },
-    {
-      "id": "q27",
-      "query": "What is the format of a site ID?",
-      "missed_docs": [
-        "decision-0004-fleet-site-ids.md",
-        "runbook-node-provisioning.md"
-      ]
-    },
-    {
-      "id": "q28",
-      "query": "What does a SEV1 incident mean?",
-      "missed_docs": [
-        "process-incident-review.md"
-      ]
-    },
-    {
-      "id": "q29",
-      "query": "What is the tolerance for antenna azimuth?",
-      "missed_docs": [
-        "runbook-antenna-realign.md"
-      ]
-    },
-    {
-      "id": "q31",
-      "query": "how long can the clock keep time with no satellites visible",
-      "missed_docs": [
-        "hw-gps-timing-module.md",
-        "runbook-gps-lock-loss.md"
-      ]
-    },
-    {
-      "id": "q32",
-      "query": "Which network port receives the fast datagram feed from nodes?",
-      "missed_docs": [
-        "decision-0007-udp-primary-transport.md",
-        "incident-2025-11-03-packet-loss.md"
-      ]
-    },
-    {
-      "id": "q33",
-      "query": "When should the TLS cert for the gateway be replaced?",
-      "missed_docs": [
-        "decision-0006-cert-automation.md",
-        "runbook-cert-renewal.md"
-      ]
-    },
-    {
-      "id": "q35",
-      "query": "How far below its normal signal strength must a station fall before someone re-aims the aerial?",
-      "missed_docs": [
-        "runbook-antenna-realign.md"
-      ]
-    },
-    {
-      "id": "q37",
-      "query": "which alert threshold signals weak reception, in decibels",
-      "missed_docs": [
-        "incident-2026-06-05-false-snr-alerts.md",
-        "runbook-alert-silence.md"
-      ]
-    },
-    {
-      "id": "q39",
-      "query": "why did the dashboard return gateway errors in April 2026",
-      "missed_docs": [
-        "incident-2026-04-30-dashboard-outage.md"
-      ]
-    }
-  ]
+  "failure_examples": []
 }

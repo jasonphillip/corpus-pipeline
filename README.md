@@ -1,6 +1,6 @@
 # corpus-pipeline
 
-Turn a directory of documents into a local hybrid-search corpus on one GPU box.
+This project helps one person index their own documents for search on one machine with local models.
 
 ## What this is, in one verifiable line
 
@@ -14,14 +14,62 @@ The canonical source is https://github.com/jasonphillip/corpus-pipeline
 
 Extracted from a private working tree on 2026-08-28.
 
-The pipeline records discovered sources, acquires repository documentation and web
-pages, cleans and chunks the files, embeds each chunk, and stores the result in one
-SQLite database per corpus. Search combines SQLite FTS5 BM25 with sqlite-vec cosine
-distance. Optional local models expand queries, rerank candidates, and summarize a
-corpus.
+## What works today and limits
 
-No hosted language model is required. Page acquisition uses the configured reader
-service. Repository acquisition uses a shallow `git clone` at runtime.
+The pipeline acquires, chunks, and indexes documents. Search combines FTS5 keyword results with cosine vectors. Optional local models expand queries and rerank results.
+Deduplication stays within each source. Deleting a raw file does not remove its indexed chunks.
+Legacy L2 vector indexes need the [documented rebuild](#rebuilding-a-legacy-l2-index).
+BM25 joins all query tokens with AND, including common question words. [Retrieval evaluation](#retrieval-evaluation) shows the effect.
+
+## Quickstart
+
+Question: **How does hybrid retrieval combine BM25 and cosine distance?**
+The answer is in `examples/docs/2024-06-retrieval.md`.
+Run these commands from the repository root after starting the embedding service described below:
+
+```bash
+python3 -m venv "$PWD/.venv"
+. "$PWD/.venv/bin/activate"
+python3 -m pip install -e "$PWD"
+cp "$PWD/corpus.example.yml" "$PWD/corpus.yml"
+export CORPUS_CONFIG="$PWD/corpus.yml"
+export CORPUS_ROOT="$(mktemp -d)"
+export CORPUS_EMBED_PROVIDER=openai
+export CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings
+export CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B
+export CORPUS_OPENAI_EMBED_DIMS=2560
+mkdir -p "$CORPUS_ROOT/my-docs/raw/example"
+cp "$PWD"/examples/docs/*.md "$CORPUS_ROOT/my-docs/raw/example/"
+corpus process my-docs rag
+corpus search my-docs --top-k 3 "How does hybrid retrieval combine BM25 and cosine distance?"
+```
+
+The expected top source is `example/2024-06-retrieval.md`.
+Its text explains weighted fusion of FTS5 BM25 and cosine vector results.
+Scores vary by model and build. This three-file corpus does not establish retrieval quality.
+The corpus is below the default 500-chunk smart-mode threshold, so Ollama reranking does not run.
+`examples/quickstart.txt` repeats the commands and shows abbreviated output.
+
+### CPU fixture run
+
+The test suite uses a fake embedder to exercise indexing, search, update, rollback, and rerun mechanics.
+Its CPU results say nothing about retrieval quality with a real embedding model.
+
+## Measured result
+
+The [retrieval evaluation](#retrieval-evaluation) used 30 queries and 45 synthetic documents with a local embedding model.
+Its [measured results](eval/results/2026-10-12-833796a.md) show full vector recall on this easy set.
+
+## Design decision
+
+Each corpus uses one SQLite file with FTS5, sqlite-vec, and weighted fusion.
+This serves a single-box setup with no service beyond the embedder. The tradeoff is a small corpus per file and no distributed index.
+
+## How this was built
+
+I built this with LLM coding agents, Claude Code and Codex, under my direction.
+I set the requirements, chose the SQLite design and local-model constraint, reviewed every change, and set the acceptance criteria.
+The agents wrote most of the code and tests.
 
 ## Pipeline
 
@@ -107,40 +155,6 @@ python3 -c 'import sqlite3,sys; source=sqlite3.connect(sys.argv[1]); target=sqli
   "$HOME/.corpus/my-docs/processed/chunks.db"
 ```
 
-## Quickstart
-
-Question: **How does hybrid retrieval combine BM25 and cosine distance?**
-The answer is in `examples/docs/2024-06-retrieval.md`.
-Run these commands from the repository root after starting the embedding service described below:
-
-```bash
-python3 -m venv "$PWD/.venv"
-. "$PWD/.venv/bin/activate"
-python3 -m pip install -e "$PWD"
-cp "$PWD/corpus.example.yml" "$PWD/corpus.yml"
-export CORPUS_CONFIG="$PWD/corpus.yml"
-export CORPUS_ROOT="$(mktemp -d)"
-export CORPUS_EMBED_PROVIDER=openai
-export CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings
-export CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B
-export CORPUS_OPENAI_EMBED_DIMS=2560
-mkdir -p "$CORPUS_ROOT/my-docs/raw/example"
-cp "$PWD"/examples/docs/*.md "$CORPUS_ROOT/my-docs/raw/example/"
-corpus process my-docs rag
-corpus search my-docs --top-k 3 "How does hybrid retrieval combine BM25 and cosine distance?"
-```
-
-The expected top source is `example/2024-06-retrieval.md`.
-Its text explains weighted fusion of FTS5 BM25 and cosine vector results.
-Scores vary by model and build. This three-file corpus does not establish retrieval quality.
-The corpus is below the default 500-chunk smart-mode threshold, so Ollama reranking does not run.
-`examples/quickstart.txt` repeats the commands and shows abbreviated output.
-
-### CPU fixture run
-
-The test suite uses a fake embedder to exercise indexing, search, update, rollback, and rerun mechanics.
-Its CPU results say nothing about retrieval quality with a real embedding model.
-
 ## Embedding and reranking services
 
 The local embedding deployment records llama.cpp v0.6.0 (commit `d812350`) and
@@ -176,7 +190,29 @@ cross-encoder takes precedence over Ollama reranking.
 
 ## Retrieval evaluation
 
-The [retrieval evaluation](eval/README.md) checks passage judgments and compares document-level retrieval modes. Results are added after a real embedding run.
+The [evaluation method](eval/README.md) checks passages and compares document-level retrieval modes.
+The [2026-10-12 result](eval/results/2026-10-12-833796a.md) used git revision `833796a`, Qwen3-Embedding-4B at 2560 dimensions through llama.cpp, and Ollama `qwen3:14b` for reranking.
+The run used 30 eval queries and 45 synthetic documents of one chunk each. Building the index took 8.6 seconds.
+
+| Mode | Recall@5 | Recall@10 | nDCG@10 | p50 ms | p95 ms | Queries |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| bm25 | 0.250 | 0.250 | 0.254 | 0.24 | 0.35 | 30 |
+| vector | 1.000 | 1.000 | 0.936 | 43.39 | 45.98 | 30 |
+| hybrid | 1.000 | 1.000 | 0.985 | 43.11 | 46.03 | 30 |
+| hybrid_rerank | 1.000 | 1.000 | 0.992 | 1744.28 | 3106.54 | 30 |
+
+Run the evaluation from the repository root with the same local services:
+
+```bash
+CORPUS_EMBED_PROVIDER=openai CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B CORPUS_OPENAI_EMBED_DIMS=2560 CORPUS_TEST_OLLAMA_URL=http://localhost:11434 CORPUS_TRIAGE_MODEL=qwen3:14b CORPUS_SCORING_MODEL=qwen3:14b python3 eval/run_eval.py
+```
+
+The corpus and judgments are synthetic and self-authored. These numbers show the mechanics on an easy set and are not a benchmark.
+Vector and hybrid recall every judged document on this set. Reranking adds 0.007 nDCG@10 at about 40 times the p50 latency.
+BM25 alone misses three quarters of the queries because `_build_fts_query` joins every token with AND, including words like "how", "does", and "the".
+A natural question such as "How does the admin API authenticate requests?" matches no chunk, while a keyword query such as "lsctl purge older-than" does.
+This is a known limitation of the keyword leg. Hybrid search covers it through the vector leg.
+Relaxing the keyword query is a possible change that was not made here.
 
 ## Tests
 

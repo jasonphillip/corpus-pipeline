@@ -7,9 +7,10 @@
 - [README.md](README.md): Defines the architecture, supported workflows, storage layout, and operational limits.
 - [LICENSE](LICENSE): Contains the MIT license terms.
 
-## Retrieval evaluation
+## Evaluation
 
 - [eval/README.md](eval/README.md): Explains the synthetic judgments, metric definitions, and real run.
+- [eval/results/2026-10-12-833796a.md](eval/results/2026-10-12-833796a.md): Records the real local-model evaluation results.
 - [eval/run_eval.py](eval/run_eval.py): Checks passages, builds a fresh index, and writes measured reports.
 
 ## Configuration and packaging
