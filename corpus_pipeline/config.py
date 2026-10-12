@@ -131,6 +131,9 @@ CHUNK_OVERLAP_ENHANCED = _int_env("CORPUS_LARGE_CHUNK_OVERLAP", "chunking.openai
 
 SEARCH_VECTOR_WEIGHT = _float_env("CORPUS_VECTOR_WEIGHT", "search.vector_weight", 0.7)
 SEARCH_BM25_WEIGHT = _float_env("CORPUS_BM25_WEIGHT", "search.bm25_weight", 0.3)
+SEARCH_FTS_MATCH = _str_env("CORPUS_FTS_MATCH", "search.fts_match", "any").lower()
+if SEARCH_FTS_MATCH not in {"any", "all"}:
+    raise ValueError("search.fts_match must be 'any' or 'all'")
 SEARCH_MMR_LAMBDA = _float_env("CORPUS_MMR_LAMBDA", "search.mmr_lambda", 0.7)
 SEARCH_TOP_K = _int_env("CORPUS_TOP_K", "search.top_k", 30)
 SEARCH_PER_SOURCE_LIMIT = _int_env("CORPUS_PER_SOURCE_LIMIT", "search.per_source_limit", 3)

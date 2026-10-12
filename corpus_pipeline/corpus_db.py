@@ -11,6 +11,7 @@ from pathlib import Path
 from .config import (
     corpus_path, SEARCH_VECTOR_WEIGHT, SEARCH_BM25_WEIGHT,
     SEARCH_PER_SOURCE_LIMIT, SEARCH_RECENCY_WEIGHT, SEARCH_CAPTION_PREFIX,
+    SEARCH_FTS_MATCH,
 )
 from .embedder import get_dims
 
@@ -18,6 +19,14 @@ from .embedder import get_dims
 # at insert time, which would corrupt the index if the embedder ever fell back
 # to a different model. Read the schema-declared dim once and validate.
 _VEC_DIM_RE = re.compile(r"embedding\s+float\[(\d+)\]")
+
+_FTS_COMMON_WORDS = frozenset({
+    "a", "an", "the", "is", "are", "was", "were", "be", "do", "does", "did",
+    "how", "what", "when", "where", "which", "who", "why", "of", "in", "on",
+    "at", "to", "for", "from", "by", "with", "and", "or", "not", "this",
+    "that", "these", "those", "it", "its", "as", "than", "then", "there",
+    "their", "can", "could", "should", "would", "will", "has", "have", "had",
+})
 
 # sqlite-vec loaded at connection time
 _VEC_EXTENSION = None
@@ -217,6 +226,8 @@ def search_bm25(conn: sqlite3.Connection, query: str, limit: int = 50,
                 caption_mode: str = "include") -> list[dict]:
     """Full-text BM25 search."""
     fts_query = _build_fts_query(query)
+    if not fts_query:
+        return []
     clause, extra = _caption_filter(caption_mode, "content")
     try:
         rows = conn.execute(
@@ -390,13 +401,16 @@ def _build_fts_query(query: str) -> str:
     Preserves hyphens, dots, and special chars within tokens (e.g. "C++", "vue.js").
     Quotes each token to avoid FTS5 syntax errors from special chars.
     """
-    import re
     # Match word-like tokens including hyphens, dots, plus signs, and non-ASCII
     tokens = re.findall(r'[\w+][\w.+\-]*', query, re.UNICODE)
-    tokens = [t for t in tokens if len(t) > 1]
     if not tokens:
-        # Fall back to the raw query quoted to prevent syntax errors
-        return f'"{query}"'
+        return ""
+    filtered = [t for t in tokens if not (
+        t.lower() in _FTS_COMMON_WORDS
+        and not any(c.isdigit() or c in ".-+" for c in t)
+        and not any(c.isupper() for c in t[1:])
+    )]
+    tokens = filtered or tokens
     # Quote each token to escape FTS5 special characters
     quoted = [f'"{t}"' for t in tokens]
-    return " AND ".join(quoted)
+    return (" AND " if SEARCH_FTS_MATCH == "all" else " OR ").join(quoted)

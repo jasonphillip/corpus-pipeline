@@ -38,9 +38,8 @@ def test_fake_run_three_documents(tmp_path):
     assert result["split"]["eval_queries"] == 1
     assert result["split"]["tune_queries"] == 1
     assert result["modes"]["bm25"]["query_count"] == 1
-    assert result["modes"]["bm25"]["recall_at_5"] == 0.5
-    assert result["modes"]["bm25"]["ndcg_at_10"] == pytest.approx(
-        1 / (1 + 1 / math.log2(3)))
+    assert result["modes"]["bm25"]["recall_at_5"] == 1.0
+    assert result["modes"]["bm25"]["ndcg_at_10"] == 1.0
     assert result["modes"]["hybrid_rerank"]["status"] == "unrun"
     assert result["embedder"] == "fake (mechanics only)"
     assert "not retrieval quality" in path.with_suffix(".md").read_text()

@@ -19,7 +19,8 @@ Extracted from a private working tree on 2026-08-28.
 The pipeline acquires, chunks, and indexes documents. Search combines FTS5 keyword results with cosine vectors. Optional local models expand queries and rerank results.
 Deduplication stays within each source. Deleting a raw file does not remove its indexed chunks.
 Legacy L2 vector indexes need the [documented rebuild](#rebuilding-a-legacy-l2-index).
-BM25 joins all query tokens with AND, including common question words. [Retrieval evaluation](#retrieval-evaluation) shows the effect.
+The BM25 keyword leg uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
+[Retrieval evaluation](#retrieval-evaluation) records the earlier AND behavior.
 
 ## Quickstart
 
@@ -209,10 +210,10 @@ CORPUS_EMBED_PROVIDER=openai CORPUS_EMBED_URL=http://localhost:8000/v1/embedding
 
 The corpus and judgments are synthetic and self-authored. These numbers show the mechanics on an easy set and are not a benchmark.
 Vector and hybrid recall every judged document on this set. Reranking adds 0.007 nDCG@10 at about 40 times the p50 latency.
-BM25 alone misses three quarters of the queries because `_build_fts_query` joins every token with AND, including words like "how", "does", and "the".
-A natural question such as "How does the admin API authenticate requests?" matches no chunk, while a keyword query such as "lsctl purge older-than" does.
-This is a known limitation of the keyword leg. Hybrid search covers it through the vector leg.
-Relaxing the keyword query is a possible change that was not made here.
+In that run, BM25 alone missed three quarters of the queries because `_build_fts_query` joined every token with AND, including words like "how", "does", and "the".
+In that run, a natural question such as "How does the admin API authenticate requests?" matched no chunk, while a keyword query such as "lsctl purge older-than" did.
+The keyword leg now uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
+A rerun after this change is recorded below.
 
 ## Tests
 

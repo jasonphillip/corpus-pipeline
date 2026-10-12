@@ -1,5 +1,8 @@
+import os
 import sqlite3
 import struct
+import subprocess
+import sys
 
 import pytest
 
@@ -13,6 +16,7 @@ from corpus_pipeline.corpus_db import _build_fts_query, _caption_filter, search_
 @pytest.fixture
 def fts_connection():
     conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
     try:
         try:
             conn.execute("CREATE VIRTUAL TABLE chunks_fts USING fts5("
@@ -82,7 +86,72 @@ def test_search_parser_accepts_flags_after_topic():
 
 
 def test_fts_query_quotes_special_tokens():
-    assert _build_fts_query("C++ vue.js") == '"C++" AND "vue.js"'
+    assert _build_fts_query("C++ vue.js") == '"C++" OR "vue.js"'
+    assert _build_fts_query("the admin API") == '"admin" OR "API"'
+    assert _build_fts_query("the-2 a.b a+b tHis") == (
+        '"the-2" OR "a.b" OR "a+b" OR "tHis"'
+    )
+
+
+def test_fts_match_config_and_environment_override(tmp_path):
+    config_path = tmp_path / "corpus.yml"
+    env = {**os.environ, "CORPUS_CONFIG": str(config_path)}
+    env.pop("CORPUS_FTS_MATCH", None)
+    command = [sys.executable, "-c", "from corpus_pipeline.config import SEARCH_FTS_MATCH; print(SEARCH_FTS_MATCH)"]
+    assert subprocess.check_output(command, env=env, text=True).strip() == "any"
+    config_path.write_text("search:\n  fts_match: all\n", encoding="utf-8")
+    assert subprocess.check_output(command, env=env, text=True).strip() == "all"
+    env["CORPUS_FTS_MATCH"] = "any"
+    assert subprocess.check_output(command, env=env, text=True).strip() == "any"
+
+
+def test_bm25_question_uses_any_term_by_default(fts_connection, monkeypatch):
+    fts_connection.execute("INSERT INTO chunks_fts VALUES (?, ?, ?)",
+                           (1, "admin.md", "The admin API authenticates requests with a bearer token."))
+    monkeypatch.setattr(corpus_db, "SEARCH_FTS_MATCH", "any")
+    assert [row["source_path"] for row in search_bm25(
+        fts_connection, "How does the admin API authenticate requests?"
+    )] == ["admin.md"]
+    monkeypatch.setattr(corpus_db, "SEARCH_FTS_MATCH", "all")
+    assert search_bm25(fts_connection, "How does the admin API authenticate requests?") == []
+
+
+def test_bm25_preserves_identifiers_and_dotted_terms(fts_connection, monkeypatch):
+    monkeypatch.setattr(corpus_db, "SEARCH_FTS_MATCH", "all")
+    fts_connection.execute("INSERT INTO chunks_fts VALUES (?, ?, ?)",
+                           (2, "identifiers.md", "C++ vue.js older-than v2.0 APIKey 7"))
+    assert _build_fts_query("C++ vue.js older-than v2.0 APIKey 7") == (
+        '"C++" AND "vue.js" AND "older-than" AND "v2.0" AND "APIKey" AND "7"'
+    )
+    assert [row["source_path"] for row in search_bm25(
+        fts_connection, "C++ vue.js older-than v2.0 APIKey 7"
+    )] == ["identifiers.md"]
+
+
+@pytest.mark.parametrize("query", ["", "!?.,"])
+def test_bm25_empty_or_punctuation_only_returns_empty(fts_connection, query):
+    assert search_bm25(fts_connection, query) == []
+
+
+def test_bm25_common_words_fall_back_to_full_query(fts_connection, monkeypatch):
+    monkeypatch.setattr(corpus_db, "SEARCH_FTS_MATCH", "any")
+    fts_connection.execute("INSERT INTO chunks_fts VALUES (?, ?, ?)",
+                           (3, "common.md", "This is the answer."))
+    assert _build_fts_query("this is the") == '"this" OR "is" OR "the"'
+    assert [row["source_path"] for row in search_bm25(
+        fts_connection, "this is the"
+    )] == ["common.md"]
+
+
+def test_bm25_all_requires_every_filtered_term(fts_connection, monkeypatch):
+    monkeypatch.setattr(corpus_db, "SEARCH_FTS_MATCH", "all")
+    fts_connection.executemany("INSERT INTO chunks_fts VALUES (?, ?, ?)", [
+        (4, "one.md", "admin API only"),
+        (5, "both.md", "admin API token"),
+    ])
+    assert [row["source_path"] for row in search_bm25(
+        fts_connection, "the admin token"
+    )] == ["both.md"]
 
 
 def test_caption_filter_modes():
