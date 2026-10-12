@@ -8,7 +8,7 @@ This repo turns a directory of documents into a local hybrid-search corpus in on
 
 The mechanism is normalized weighted fusion of the two candidate lists.
 
-Verify it offline with `python3 -m pytest tests/`, then run the quickstart on `examples/docs/`.
+Verify the mechanics with `python3 -m pytest tests/ -q`, then try the quickstart on `examples/docs/`.
 
 The canonical source is https://github.com/jasonphillip/corpus-pipeline
 
@@ -109,28 +109,93 @@ python3 -c 'import sqlite3,sys; source=sqlite3.connect(sys.argv[1]); target=sqli
 
 ## Quickstart
 
-```bash
-python3 -m venv .venv
-. .venv/bin/activate
-python3 -m pip install -e .
-cp corpus.example.yml corpus.yml
-```
-
-Edit `corpus.yml`. Set the embedding model name and its output dimension. Start the
-embedding service before processing.
-
-Use the included synthetic files for a local first run:
+Question: **How does hybrid retrieval combine BM25 and cosine distance?**
+The answer is in `examples/docs/2024-06-retrieval.md`.
+Run these commands from the repository root after starting the embedding service described below:
 
 ```bash
-mkdir -p ~/.corpus/my-docs/raw/example
-cp examples/docs/*.md ~/.corpus/my-docs/raw/example/
+python3 -m venv "$PWD/.venv"
+. "$PWD/.venv/bin/activate"
+python3 -m pip install -e "$PWD"
+cp "$PWD/corpus.example.yml" "$PWD/corpus.yml"
+export CORPUS_CONFIG="$PWD/corpus.yml"
+export CORPUS_ROOT="$(mktemp -d)"
+export CORPUS_EMBED_PROVIDER=openai
+export CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings
+export CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B
+export CORPUS_OPENAI_EMBED_DIMS=2560
+mkdir -p "$CORPUS_ROOT/my-docs/raw/example"
+cp "$PWD"/examples/docs/*.md "$CORPUS_ROOT/my-docs/raw/example/"
 corpus process my-docs rag
-corpus search my-docs "how does hybrid retrieval work"
-corpus first-mention my-docs "vector index"
-corpus health --scope all --no-persist
+corpus search my-docs --top-k 3 "How does hybrid retrieval combine BM25 and cosine distance?"
 ```
 
-`examples/quickstart.txt` shows the expected command sequence and abbreviated output.
+The expected top source is `example/2024-06-retrieval.md`.
+Its text explains weighted fusion of FTS5 BM25 and cosine vector results.
+Scores vary by model and build. This three-file corpus does not establish retrieval quality.
+The corpus is below the default 500-chunk smart-mode threshold, so Ollama reranking does not run.
+`examples/quickstart.txt` repeats the commands and shows abbreviated output.
+
+### CPU fixture run
+
+The test suite uses a fake embedder to exercise indexing, search, update, rollback, and rerun mechanics.
+Its CPU results say nothing about retrieval quality with a real embedding model.
+
+## Embedding and reranking services
+
+The local embedding deployment records llama.cpp v0.6.0 (commit `d812350`) and
+`Qwen3-Embedding-4B-Q8_0.gguf`. Give `llama-server` the model file on your machine:
+
+```bash
+export MODEL_GGUF=/absolute/path/to/Qwen3-Embedding-4B-Q8_0.gguf
+llama-server --version
+llama-server -m "$MODEL_GGUF" --host 127.0.0.1 --port 8000 --embeddings --pooling last --ctx-size 8192
+```
+
+Run the last command in a separate terminal before the quickstart.
+This model returns 2,560 dimensions. Set `CORPUS_OPENAI_EMBED_DIMS=2560` and
+`CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B` when using it.
+The client calls `http://localhost:8000/v1/embeddings` with `model` and `input`.
+An existing index cannot change embedding model without rebuilding its vectors.
+
+Ollama is optional for query expansion and LLM reranking. The local client checked
+for this example is Ollama 0.40.0. To provide the configured model names:
+
+```bash
+ollama --version
+ollama pull qwen3:8b
+ollama pull qwen3:14b
+ollama serve
+```
+
+Run `ollama serve` in a separate terminal unless Ollama is already serving at
+`http://localhost:11434`. The defaults use `qwen3:8b` for expansion and
+`qwen3:14b` for LLM reranking. The search path enables both only when the
+largest searched corpus has at least 500 chunks. A configured `/v1/rerank`
+cross-encoder takes precedence over Ollama reranking.
+
+## Retrieval evaluation
+
+The [retrieval evaluation](eval/README.md) checks passage judgments and compares document-level retrieval modes. Results are added after a real embedding run.
+
+## Tests
+
+Run the same CPU command as CI:
+
+```bash
+python3 -m pip install -e . && python3 -m pip install 'pytest>=8,<10' && python3 -m pytest tests/ -q
+```
+
+The two service tests skip with `CORPUS_TEST_EMBED_URL is not set` when no endpoint is selected.
+To enable embedding and optional Ollama coverage, use their base URLs:
+
+```bash
+CORPUS_TEST_EMBED_URL=http://localhost:8000/v1 python3 -m pytest tests/test_services.py -q
+CORPUS_TEST_EMBED_URL=http://localhost:8000/v1 CORPUS_TEST_OLLAMA_URL=http://localhost:11434 python3 -m pytest tests/test_services.py -q
+```
+
+The Ollama test forces query expansion on this small corpus.
+It uses `qwen3:14b` for expansion and scoring by default. Set `CORPUS_TEST_OLLAMA_MODEL` to another installed model.
 
 ## Source discovery and acquisition
 

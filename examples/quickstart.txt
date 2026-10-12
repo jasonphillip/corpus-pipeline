@@ -1,21 +1,31 @@
-$ cp corpus.example.yml corpus.yml
-$ mkdir -p ~/.corpus/my-docs/raw/example
-$ cp examples/docs/*.md ~/.corpus/my-docs/raw/example/
+Question: How does hybrid retrieval combine BM25 and cosine distance?
+Run from the repository root after starting the embedding service.
+
+$ python3 -m venv "$PWD/.venv"
+$ . "$PWD/.venv/bin/activate"
+$ python3 -m pip install -e "$PWD"
+$ cp "$PWD/corpus.example.yml" "$PWD/corpus.yml"
+$ export CORPUS_CONFIG="$PWD/corpus.yml"
+$ export CORPUS_ROOT="$(mktemp -d)"
+$ export CORPUS_EMBED_PROVIDER=openai
+$ export CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings
+$ export CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B
+$ export CORPUS_OPENAI_EMBED_DIMS=2560
+$ mkdir -p "$CORPUS_ROOT/my-docs/raw/example"
+$ cp "$PWD"/examples/docs/*.md "$CORPUS_ROOT/my-docs/raw/example/"
 $ corpus process my-docs rag
-Embedding: local-embedding-model (OpenAI-compatible)
+Embedding: Qwen3-Embedding-4B (OpenAI-compatible)
+Dimensions: 2560
 Files to process: 3
 Processing complete for 'my-docs'
 
-$ corpus search my-docs "how does hybrid retrieval work" --top-k 3
-Query: how does hybrid retrieval work
+$ corpus search my-docs --top-k 3 "How does hybrid retrieval combine BM25 and cosine distance?"
+Query: How does hybrid retrieval combine BM25 and cosine distance?
 Captions: include
-### Result 1 — score: 0.xxx
-**Source:** example/2024-06-retrieval.md
+### Result 1 — score: [varies]
+**Source:** example/2024-06-retrieval.md ← synthetic/retrieval-review.md [BODY] [my-docs]
+Hybrid retrieval combines two signals. FTS5 BM25 finds exact terms, while cosine
+distance finds related language.
+Returned 3 results
 
-$ corpus first-mention my-docs "vector index" --no-expand --limit 2
-# Earliest mentions: `vector index` in `my-docs`
-| # | Date | Source | Match | Snippet |
-| 1 | 2024-01-15 | `example/2024-01-setup.md` | text | ... |
-
-The scores and timing depend on the configured local models and hardware.
-
+Output is abbreviated and illustrative. Scores and order require a live service check.

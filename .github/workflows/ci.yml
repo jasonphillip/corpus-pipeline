@@ -1,0 +1,23 @@
+name: CPU tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install package and tests
+        run: |
+          python3 -m pip install -e .
+          python3 -m pip install 'pytest>=8,<10'
+      - name: Run CPU tests
+        env:
+          CORPUS_TEST_EMBED_URL: ''
+          CORPUS_TEST_OLLAMA_URL: ''
+        run: python3 -m pytest tests/ -q

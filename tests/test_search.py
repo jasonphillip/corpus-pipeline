@@ -3,9 +3,10 @@ import struct
 
 import pytest
 
+from corpus_pipeline.commands import search
 from corpus_pipeline.commands.search import RRF_K, _parse_argv, _rrf_merge
 from corpus_pipeline.config import SEARCH_TOP_K
-from corpus_pipeline import corpus_db
+from corpus_pipeline import corpus_db, ollama_llm
 from corpus_pipeline.corpus_db import _build_fts_query, _caption_filter, search_bm25
 
 
@@ -41,6 +42,36 @@ def test_rrf_preserves_single_list_order():
     merged = _rrf_merge([[_result("a", 1, 0.9), _result("a", 2, 0.8)]])
     assert [row["id"] for row in merged] == [1, 2]
     assert merged[0]["rrf_score"] == 1.0 / (RRF_K + 1)
+
+
+@pytest.mark.parametrize(
+    ("variants", "expected"),
+    [(["alternative one", "alternative two"], "Query expansion: +2 variants"),
+     ([], "Query expansion skipped: no variants returned")],
+)
+def test_search_reports_query_expansion_without_services(
+    tmp_path, monkeypatch, capsys, variants, expected
+):
+    (tmp_path / "processed").mkdir()
+    (tmp_path / "processed" / "chunks.db").touch()
+
+    class Connection:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(search, "corpus_path", lambda topic: tmp_path)
+    monkeypatch.setattr(search, "connect", lambda topic: Connection())
+    monkeypatch.setattr(search, "get_stats", lambda conn: {"total_chunks": 1})
+    monkeypatch.setattr(search, "get_label", lambda: "test embedder")
+    monkeypatch.setattr(search, "_search_single_corpus", lambda *args, **kwargs: [])
+    monkeypatch.setattr(search, "SEARCH_SMART_MIN_CHUNKS", 1)
+    monkeypatch.setattr(search, "SEARCH_QUERY_EXPANSION", True)
+    monkeypatch.setattr(search, "SEARCH_RERANK", False)
+    monkeypatch.setattr(ollama_llm, "expand_query", lambda query, n: variants)
+
+    search.search(["example"], "original query", top_k=3)
+
+    assert expected in capsys.readouterr().out
 
 
 def test_search_parser_accepts_flags_after_topic():

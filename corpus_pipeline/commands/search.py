@@ -198,6 +198,8 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
             if alternatives:
                 all_queries.extend(alternatives)
                 print(f"Query expansion: +{len(alternatives)} variants")
+            else:
+                print("Query expansion skipped: no variants returned")
         except Exception as e:
             print(f"Query expansion skipped: {type(e).__name__}: {e}")
 
