@@ -92,7 +92,7 @@ from ..config import corpus_path, get_embedding_config
 from ..content_filter import clean_chunk
 from ..corpus_db import (
     connect, init_schema, insert_chunk, delete_by_source, get_stats,
-    get_source_hash, upsert_source, content_hash, get_existing_hashes,
+    get_source_hash, upsert_source, content_hash,
 )
 from ..chunker import chunk_file
 from ..embedder import get_dims, get_label
@@ -188,9 +188,6 @@ def process_topic(topic: str, force: bool = False):
             print(f"Hygiene: {excluded_files} excluded files skipped, "
                   f"{purged_sources} previously-indexed sources purged")
 
-    # Drop duplicate chunks before embedding. The set grows during this run.
-    existing_hashes = get_existing_hashes(conn)
-
     # Stamp the manifest with the embedding model + dim that built this index.
     # Lets future tooling (search, migration) detect mismatches and migrate
     # corpora individually rather than relying on a single global config.
@@ -228,7 +225,7 @@ def process_topic(topic: str, force: bool = False):
                     hflags = hygiene.flags_for(rel_path)
                     if hflags and hygiene.apply_flags(conn, rel_path, hflags):
                         flagged_sources += 1
-                        conn.commit()
+                conn.commit()
                 continue
 
             # Pull YAML frontmatter (empty {} for files without it). Used to
@@ -241,20 +238,6 @@ def process_topic(topic: str, force: bool = False):
 
             # Chunk the file
             chunks = chunk_file(filepath, chunk_size=chunk_size)
-            if not chunks:
-                continue
-
-            # Drop this source's own committed hashes from the dedup set BEFORE
-            # deleting them, so a re-processed/changed file isn't deduped against
-            # the version we're about to replace. No-op on a fresh build or for a
-            # never-seen file (indexed lookup by source_path — cheap).
-            own_prior = {r[0] for r in conn.execute(
-                "SELECT hash FROM chunks WHERE source_path = ?", (rel_path,))}
-            existing_hashes -= own_prior
-
-            # Delete existing chunks for this source (idempotent re-processing)
-            delete_by_source(conn, rel_path)
-
             # Clean chunks — strip boilerplate and check density
             cleaned_chunks = []
             noise_filtered = 0
@@ -267,31 +250,27 @@ def process_topic(topic: str, force: bool = False):
                     noise_filtered += 1
             chunks = cleaned_chunks
 
+            # Replace this source in one transaction, including an empty result.
+            delete_by_source(conn, rel_path)
             if not chunks:
-                continue
-
-            # Pre-embed dedup: drop chunks whose content is already present (this
-            # corpus, or an earlier file this run) BEFORE paying to embed them.
-            # insert_chunk keeps the same check as a safety net.
-            deduped = []
-            predup = 0
-            for c in chunks:
-                h = content_hash(c["content"])
-                if h in existing_hashes:
-                    predup += 1
-                    continue
-                existing_hashes.add(h)
-                deduped.append(c)
-            total_predup += predup
-            chunks = deduped
-
-            if not chunks:
-                # Every chunk duplicated existing content. Record the source (0
-                # chunks) so a resume skips it and later verification reconciles it.
                 upsert_source(conn, rel_path, src_hash, 0)
                 conn.commit()
+                total_noise += noise_filtered
                 processed_files += 1
                 continue
+
+            # Deduplicate within this source, preserving independent owners.
+            deduped = []
+            predup = 0
+            seen_hashes = set()
+            for c in chunks:
+                h = content_hash(c["content"])
+                if h in seen_hashes:
+                    predup += 1
+                    continue
+                seen_hashes.add(h)
+                deduped.append(c)
+            chunks = deduped
 
             # Generate embeddings with batch retry + per-chunk fallback.
             texts = [c["content"] for c in chunks]
@@ -349,6 +328,7 @@ def process_topic(topic: str, force: bool = False):
             conn.commit()
             total_chunks += inserted
             total_dupes += dupes
+            total_predup += predup
             total_noise += noise_filtered
             total_dropped_chunks += dropped
             processed_files += 1
@@ -361,7 +341,6 @@ def process_topic(topic: str, force: bool = False):
 
         except Exception as e:
             conn.rollback()
-            existing_hashes = get_existing_hashes(conn)
             failed_files += 1
             print(f"  FAIL [{i}/{len(files)}] {rel_path}: {e}", file=sys.stderr)
             continue
@@ -431,4 +410,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

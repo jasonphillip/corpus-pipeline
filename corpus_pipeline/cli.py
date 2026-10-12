@@ -25,7 +25,7 @@ HELP = """corpus — local document acquisition, indexing, and search
   corpus config
 
 Maintenance commands: deduplicate, bridge-frontmatter, strip-frontmatter,
-reembed, import-labels.
+reembed [--rebuild-vectors], import-labels.
 """
 
 

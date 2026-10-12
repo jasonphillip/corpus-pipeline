@@ -89,6 +89,24 @@ pipeline probes live vectors and rejects mismatched insertions. Do not change th
 embedding model for an existing corpus without rebuilding or migrating its index.
 The vector table uses cosine distance; corpora built before this change use L2 and must be rebuilt.
 
+## Rebuilding a legacy L2 index
+
+Stop other writers, use the configured embedding model, and run:
+
+```bash
+python3 -m corpus_pipeline reembed my-docs --rebuild-vectors
+python3 -m corpus_pipeline health --scope all --no-persist
+```
+
+The command prints a timestamped `chunks.db.backup-*.db` path beside the index.
+If a rebuild is interrupted, close corpus processes and restore that backup:
+
+```bash
+python3 -c 'import sqlite3,sys; source=sqlite3.connect(sys.argv[1]); target=sqlite3.connect(sys.argv[2]); source.backup(target); source.close(); target.close()' \
+  "$HOME/.corpus/my-docs/processed/chunks.db.backup-<timestamp>.db" \
+  "$HOME/.corpus/my-docs/processed/chunks.db"
+```
+
 ## Quickstart
 
 ```bash
@@ -163,6 +181,10 @@ summary. `rag` performs the durable indexing path. It:
 6. Drops duplicate content before embedding.
 7. Retries transient batch failures and isolates invalid chunks.
 8. Writes synchronized `chunks`, FTS5, sqlite-vec, and source-state rows.
+
+Deduplication stays within each source, so shared text uses extra index storage but keeps each source searchable.
+Deleting a raw file does not remove its indexed chunks; processing and refresh do not sync deletions.
+For indexes built with corpus-wide deduplication, run `python3 -m corpus_pipeline process papers rag --force` once to restore shared owners.
 
 ## Search
 

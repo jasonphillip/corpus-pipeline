@@ -115,24 +115,8 @@ def upsert_source(conn: sqlite3.Connection, source_path: str,
 
 
 def content_hash(text: str) -> str:
-    """Canonical content-dedup hash: sha256 of the chunk text, first 16 hex chars.
-
-    Shared by the build's pre-embed dedup (process_chunks) and insert_chunk's
-    safety-net check, so both agree on what counts as a duplicate. Dropping a duplicate before embedding avoids unnecessary service work on
-    repeated content.
-    """
+    """Content hash used to deduplicate chunks within one source."""
     return hashlib.sha256(text.encode()).hexdigest()[:16]
-
-
-def get_existing_hashes(conn: sqlite3.Connection) -> set[str]:
-    """Return every content hash already stored in this corpus (for pre-embed dedup).
-
-    Empty set if the chunks table doesn't exist yet (fresh corpus).
-    """
-    try:
-        return {r[0] for r in conn.execute("SELECT hash FROM chunks")}
-    except sqlite3.OperationalError:
-        return set()
 
 
 def get_vec_dim(conn: sqlite3.Connection) -> int:
@@ -140,8 +124,7 @@ def get_vec_dim(conn: sqlite3.Connection) -> int:
 
     Not memoized: sqlite3.Connection on this build isn't weakly referenceable and
     an id(conn)-keyed cache risks stale reads across corpora with different dims.
-    The sqlite_master lookup is a page-cached metadata read — cheap enough that
-    the pre-embed dedup (process_chunks), not this, is where the real time is saved.
+    The sqlite_master lookup is a page-cached metadata read.
     """
     row = conn.execute(
         "SELECT sql FROM sqlite_master WHERE type='table' AND name='chunks_vec'"
@@ -156,7 +139,7 @@ def get_vec_dim(conn: sqlite3.Connection) -> int:
 
 def insert_chunk(conn: sqlite3.Connection, source_path: str, chunk_index: int,
                  content: str, embedding: bytes, metadata: dict | None = None) -> int | None:
-    """Insert a chunk with its FTS5 and vector entries. Returns chunk id or None if duplicate."""
+    """Insert a chunk with its FTS5 and vector entries. Deduplicate within its source."""
     expected_bytes = get_vec_dim(conn) * 4  # float32 = 4 bytes
     if len(embedding) != expected_bytes:
         raise ValueError(
@@ -170,10 +153,11 @@ def insert_chunk(conn: sqlite3.Connection, source_path: str, chunk_index: int,
     chash = content_hash(content)
     metadata_json = json.dumps(metadata or {})
 
-    # Safety-net dedup: the build now drops known-duplicate chunks BEFORE embedding
-    # (process_chunks), but keep this check so any caller that inserts without the
-    # pre-filter still can't create duplicate rows.
-    existing = conn.execute("SELECT id FROM chunks WHERE hash = ?", (chash,)).fetchone()
+    # Safety net for callers that bypass process's pre-embed source-local filter.
+    existing = conn.execute(
+        "SELECT id FROM chunks WHERE source_path = ? AND hash = ?",
+        (source_path, chash),
+    ).fetchone()
     if existing:
         return None
 
