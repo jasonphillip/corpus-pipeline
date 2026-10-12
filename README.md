@@ -192,29 +192,9 @@ cross-encoder takes precedence over Ollama reranking.
 ## Retrieval evaluation
 
 The [evaluation method](eval/README.md) checks passages and compares document-level retrieval modes.
-The [2026-10-12 result](eval/results/2026-10-12-833796a.md) used git revision `833796a`, Qwen3-Embedding-4B at 2560 dimensions through llama.cpp, and Ollama `qwen3:14b` for reranking.
-The run used 30 eval queries and 45 synthetic documents of one chunk each. Building the index took 8.6 seconds.
-
-| Mode | Recall@5 | Recall@10 | nDCG@10 | p50 ms | p95 ms | Queries |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| bm25 | 0.250 | 0.250 | 0.254 | 0.24 | 0.35 | 30 |
-| vector | 1.000 | 1.000 | 0.936 | 43.39 | 45.98 | 30 |
-| hybrid | 1.000 | 1.000 | 0.985 | 43.11 | 46.03 | 30 |
-| hybrid_rerank | 1.000 | 1.000 | 0.992 | 1744.28 | 3106.54 | 30 |
-
-Run the evaluation from the repository root with the same local services:
-
-```bash
-CORPUS_EMBED_PROVIDER=openai CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B CORPUS_OPENAI_EMBED_DIMS=2560 CORPUS_TEST_OLLAMA_URL=http://localhost:11434 CORPUS_TRIAGE_MODEL=qwen3:14b CORPUS_SCORING_MODEL=qwen3:14b python3 eval/run_eval.py
-```
-
-The corpus and judgments are synthetic and self-authored. These numbers show the mechanics on an easy set and are not a benchmark.
-Vector and hybrid recall every judged document on this set. Reranking adds 0.007 nDCG@10 at about 40 times the p50 latency.
-In that run, BM25 alone missed three quarters of the queries because `_build_fts_query` joined every token with AND, including words like "how", "does", and "the".
-In that run, a natural question such as "How does the admin API authenticate requests?" matched no chunk, while a keyword query such as "lsctl purge older-than" did.
-The keyword leg now uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
-The first run at `833796a` used the AND query. The [rerun at `4117b89`](eval/results/2026-10-12-4117b89.md) used OR matching with the common-word filter.
-It used the same 30 eval queries, 45 documents, and services. The index built in 5.9 seconds.
+The [2026-10-12 rerun](eval/results/2026-10-12-4117b89.md) at git revision `4117b89` used OR matching with a common-word filter.
+It used Qwen3-Embedding-4B at 2560 dimensions through llama.cpp and Ollama `qwen3:14b` for reranking.
+The run used 30 eval queries and 45 synthetic documents of one chunk each. Building the index took 5.9 seconds.
 
 | Mode | Recall@5 | Recall@10 | nDCG@10 | p50 ms | p95 ms | Queries |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: |
@@ -223,8 +203,30 @@ It used the same 30 eval queries, 45 documents, and services. The index built in
 | hybrid | 1.000 | 1.000 | 0.987 | 43.16 | 45.75 | 30 |
 | hybrid_rerank | 1.000 | 1.000 | 0.992 | 964.79 | 1008.89 | 30 |
 
-BM25 alone went from recalling a quarter of the queries to nineteen in twenty. Hybrid nDCG@10 moved from 0.985 to 0.987.
+The [first run](eval/results/2026-10-12-833796a.md) at git revision `833796a` used an AND query with the same queries, documents, and services.
+Building its index took 8.6 seconds.
+
+| Mode | Recall@5 | Recall@10 | nDCG@10 | p50 ms | p95 ms | Queries |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| bm25 | 0.250 | 0.250 | 0.254 | 0.24 | 0.35 | 30 |
+| vector | 1.000 | 1.000 | 0.936 | 43.39 | 45.98 | 30 |
+| hybrid | 1.000 | 1.000 | 0.985 | 43.11 | 46.03 | 30 |
+| hybrid_rerank | 1.000 | 1.000 | 0.992 | 1744.28 | 3106.54 | 30 |
+
+In the first run, `_build_fts_query` joined every token with AND, including "how", "does", and "the".
+A natural question such as "How does the admin API authenticate requests?" matched no chunk, while a keyword query such as "lsctl purge older-than" did.
+The keyword leg now uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
+Mean Recall@5 for BM25 alone rose from 0.250 to 0.950. Hybrid nDCG@10 moved from 0.985 to 0.987.
+Vector and hybrid recall every judged document on this set. Reranking adds 0.007 nDCG@10 at about 40 times the p50 latency.
 The rerank step's latency halved between runs because of a warm Ollama cache. That cause is outside the query change, so the latency columns are not comparable between the two tables.
+
+Run the evaluation from the repository root with the same local services.
+
+```bash
+CORPUS_EMBED_PROVIDER=openai CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B CORPUS_OPENAI_EMBED_DIMS=2560 CORPUS_TEST_OLLAMA_URL=http://localhost:11434 CORPUS_TRIAGE_MODEL=qwen3:14b CORPUS_SCORING_MODEL=qwen3:14b python3 eval/run_eval.py
+```
+
+The corpus and judgments are synthetic and self-authored. These numbers show the mechanics on an easy set and are not a benchmark.
 
 ## Tests
 
