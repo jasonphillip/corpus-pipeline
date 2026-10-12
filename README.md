@@ -12,6 +12,8 @@ Verify it offline with `python3 -m pytest tests/`, then run the quickstart on `e
 
 The canonical source is https://github.com/jasonphillip/corpus-pipeline
 
+Extracted from a private working tree on 2026-08-28.
+
 The pipeline records discovered sources, acquires repository documentation and web
 pages, cleans and chunks the files, embeds each chunk, and stores the result in one
 SQLite database per corpus. Search combines SQLite FTS5 BM25 with sqlite-vec cosine

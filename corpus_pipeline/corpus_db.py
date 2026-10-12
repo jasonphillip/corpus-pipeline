@@ -241,9 +241,13 @@ def search_bm25(conn: sqlite3.Connection, query: str, limit: int = 50,
             " ORDER BY score LIMIT ?",
             (fts_query, *extra, limit)
         ).fetchall()
-    except sqlite3.OperationalError:
-        # FTS5 syntax error from malformed query — return empty results
-        return []
+    except sqlite3.OperationalError as exc:
+        message = str(exc).lower()
+        if ("fts5: syntax error near" in message
+                or "unknown special query" in message
+                or "unterminated string" in message):
+            return []
+        raise
     return [dict(r) for r in rows]
 
 
@@ -412,4 +416,3 @@ def _build_fts_query(query: str) -> str:
     # Quote each token to escape FTS5 special characters
     quoted = [f'"{t}"' for t in tokens]
     return " AND ".join(quoted)
-

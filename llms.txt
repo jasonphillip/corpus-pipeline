@@ -5,7 +5,6 @@
 ## Project documentation
 
 - [README.md](README.md): Defines the architecture, supported workflows, storage layout, and operational limits.
-- [EXTRACT-NOTES.md](EXTRACT-NOTES.md): Records source provenance, generalization decisions, and remaining limits.
 - [LICENSE](LICENSE): Contains the MIT license terms.
 
 ## Configuration and packaging

@@ -1,6 +1,26 @@
+import sqlite3
+
+import pytest
+
 from corpus_pipeline.commands.search import RRF_K, _parse_argv, _rrf_merge
 from corpus_pipeline.config import SEARCH_TOP_K
-from corpus_pipeline.corpus_db import _build_fts_query, _caption_filter
+from corpus_pipeline.corpus_db import _build_fts_query, _caption_filter, search_bm25
+
+
+@pytest.fixture
+def fts_connection():
+    conn = sqlite3.connect(":memory:")
+    try:
+        try:
+            conn.execute("CREATE VIRTUAL TABLE chunks_fts USING fts5("
+                         "chunk_id, source_path, content)")
+        except sqlite3.OperationalError as exc:
+            if "no such module: fts5" in str(exc).lower():
+                pytest.skip("SQLite was built without FTS5")
+            raise
+        yield conn
+    finally:
+        conn.close()
 
 
 def _result(corpus, chunk_id, score):
@@ -37,3 +57,16 @@ def test_caption_filter_modes():
     clause, values = _caption_filter("exclude", "content")
     assert "NOT LIKE" in clause and values
 
+
+def test_search_bm25_malformed_match_returns_empty(fts_connection):
+    fts_connection.execute(
+        "INSERT INTO chunks_fts VALUES (?, ?, ?)",
+        ("1", "example.md", "example content"),
+    )
+    assert search_bm25(fts_connection, '"') == []
+
+
+def test_search_bm25_missing_fts_table_raises(fts_connection):
+    fts_connection.execute("DROP TABLE chunks_fts")
+    with pytest.raises(sqlite3.OperationalError, match="no such table: chunks_fts"):
+        search_bm25(fts_connection, "example")
