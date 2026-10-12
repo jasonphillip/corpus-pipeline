@@ -1,9 +1,11 @@
 import sqlite3
+import struct
 
 import pytest
 
 from corpus_pipeline.commands.search import RRF_K, _parse_argv, _rrf_merge
 from corpus_pipeline.config import SEARCH_TOP_K
+from corpus_pipeline import corpus_db
 from corpus_pipeline.corpus_db import _build_fts_query, _caption_filter, search_bm25
 
 
@@ -70,3 +72,18 @@ def test_search_bm25_missing_fts_table_raises(fts_connection):
     fts_connection.execute("DROP TABLE chunks_fts")
     with pytest.raises(sqlite3.OperationalError, match="no such table: chunks_fts"):
         search_bm25(fts_connection, "example")
+
+
+def test_vector_search_uses_cosine_for_unnormalized_vectors(tmp_path, monkeypatch):
+    pytest.importorskip("sqlite_vec")
+    monkeypatch.setattr(corpus_db, "corpus_path", lambda topic: tmp_path)
+    conn = corpus_db.connect("topic")
+    try:
+        corpus_db.init_schema(conn, 2)
+        aligned = corpus_db.insert_chunk(conn, "aligned.md", 0, "aligned", struct.pack("<2f", 10, 0))
+        nearby = corpus_db.insert_chunk(conn, "nearby.md", 0, "nearby", struct.pack("<2f", 0.9, 0.1))
+        conn.commit()
+        results = corpus_db.search_vector(conn, struct.pack("<2f", 1, 0), limit=2)
+        assert [row["id"] for row in results] == [aligned, nearby]
+    finally:
+        conn.close()

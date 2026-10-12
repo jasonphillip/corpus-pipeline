@@ -1,5 +1,8 @@
 import sqlite3
 
+import pytest
+
+from corpus_pipeline import corpus_db
 from corpus_pipeline.commands import health
 
 
@@ -43,3 +46,23 @@ def test_same_day_persistence_replaces_prior_snapshot(tmp_path, monkeypatch):
     assert count == 1
     assert value == "2"
 
+
+def test_legacy_vector_schema_gets_rebuild_finding(tmp_path, monkeypatch):
+    pytest.importorskip("sqlite_vec")
+    monkeypatch.setattr(corpus_db, "corpus_path", lambda topic: tmp_path / topic)
+    monkeypatch.setattr(health, "CORPUS_ROOT", tmp_path)
+    connection = corpus_db.connect("old")
+    try:
+        corpus_db.init_schema(connection, 2)
+        assert health._vector_distance_metric(connection) == "cosine"
+        connection.execute("DROP TABLE chunks_vec")
+        connection.execute("CREATE VIRTUAL TABLE chunks_vec USING vec0("
+                           "id INTEGER PRIMARY KEY, embedding float[2])")
+        connection.commit()
+        metrics = health.audit_corpus("old")
+        assert metrics["vec_distance_metric"] == "l2"
+        flags = health.collect_flags(metrics)
+        assert any(flag["code"] == "vector_metric" and
+                   "Rebuild" in flag["remediation"] for flag in flags)
+    finally:
+        connection.close()

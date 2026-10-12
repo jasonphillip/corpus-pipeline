@@ -52,6 +52,14 @@ def _vector_dim(connection: sqlite3.Connection) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _vector_distance_metric(connection: sqlite3.Connection) -> str:
+    row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE name = 'chunks_vec'"
+    ).fetchone()
+    sql = (row[0] or "") if row else ""
+    return "cosine" if re.search(r"\bdistance_metric\s*=\s*cosine\b", sql, re.I) else "l2"
+
+
 def _manifest_dim(corpus_dir: Path) -> int | None:
     manifest = corpus_dir / "manifest.json"
     if not manifest.is_file():
@@ -113,6 +121,11 @@ def audit_corpus(corpus: str) -> dict[str, Any]:
     )
     connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
+    import sqlite_vec
+
+    connection.enable_load_extension(True)
+    connection.load_extension(sqlite_vec.loadable_path())
+    connection.enable_load_extension(False)
     try:
         tables = _table_names(connection)
         required = {"chunks", "chunks_fts", "chunks_vec", "sources"}
@@ -165,6 +178,7 @@ def audit_corpus(corpus: str) -> dict[str, Any]:
         metrics["date_range"] = [date_row[0], date_row[1]]
         metrics["last_log_line"] = _tail_log(corpus_dir)
         metrics["dim_chunks_vec"] = _vector_dim(connection)
+        metrics["vec_distance_metric"] = _vector_distance_metric(connection)
         metrics["dim_manifest"] = _manifest_dim(corpus_dir)
         metrics["dim_mismatch"] = bool(
             metrics["dim_chunks_vec"]
@@ -212,6 +226,8 @@ def collect_flags(metrics: dict[str, Any]) -> list[dict[str, str]]:
         add("fts", "WARN", "FTS row count differs from chunk count", "Rebuild the FTS table from chunks.")
     if metrics.get("dim_mismatch"):
         add("dimension", "CRITICAL", "Manifest and vector dimensions differ", "Use the original embedding model or rebuild the corpus.")
+    if metrics.get("vec_distance_metric") == "l2":
+        add("vector_metric", "WARN", "Vector table uses L2 distance", "Rebuild the corpus for cosine distance.")
     if metrics.get("orphan_chunks_no_source"):
         add("sources", "WARN", "Chunks exist without source-state rows", "Run process again to reconcile source state.")
     coverage = metrics.get("metadata_keys") or {}

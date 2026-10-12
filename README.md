@@ -87,6 +87,7 @@ links the primary chunk row to its FTS5 and sqlite-vec rows.
 The configured embedding dimension becomes part of each sqlite-vec table. The
 pipeline probes live vectors and rejects mismatched insertions. Do not change the
 embedding model for an existing corpus without rebuilding or migrating its index.
+The vector table uses cosine distance; corpora built before this change use L2 and must be rebuilt.
 
 ## Quickstart
 

@@ -74,7 +74,7 @@ def init_schema(conn: sqlite3.Connection, dims: int):
 
         CREATE VIRTUAL TABLE IF NOT EXISTS chunks_vec USING vec0(
             id INTEGER PRIMARY KEY,
-            embedding float[{dims}]
+            embedding float[{dims}] distance_metric=cosine
         );
 
         CREATE TABLE IF NOT EXISTS sources (

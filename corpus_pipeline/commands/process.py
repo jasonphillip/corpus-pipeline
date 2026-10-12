@@ -48,12 +48,12 @@ def _file_hash(path: Path) -> str:
 def _embed_with_fallback(texts: list[str]) -> tuple[list[bytes | None], int]:
     """Embed a batch, retrying transient failures and falling back per-chunk on 4xx.
 
-    Returns (embeddings_or_None_for_dropped, dropped_count). The caller skips
-    chunks whose embedding came back None.
+    Returns (embeddings_or_None_for_dropped, dropped_count). The caller aborts
+    the document if any embedding came back None.
 
     Strategy mirrors OpenAI's published guidance: 5xx/429/408 are transient
     (whole-batch retry with backoff); other 4xx mean a specific input is bad
-    (drop into per-chunk mode and skip the offender, not the whole file).
+    (drop into per-chunk mode to identify offenders before aborting the file).
 
     Uses concurrent HTTP fan-out while preserving input order.
     """
@@ -296,6 +296,9 @@ def process_topic(topic: str, force: bool = False):
             # Generate embeddings with batch retry + per-chunk fallback.
             texts = [c["content"] for c in chunks]
             embeddings, dropped = _embed_with_fallback(texts)
+            if dropped:
+                total_dropped_chunks += dropped
+                raise RuntimeError(f"{dropped} embedding(s) dropped")
 
             # Match rel_path to a source URL for content_date
             matched_date = ""
@@ -358,6 +361,7 @@ def process_topic(topic: str, force: bool = False):
 
         except Exception as e:
             conn.rollback()
+            existing_hashes = get_existing_hashes(conn)
             failed_files += 1
             print(f"  FAIL [{i}/{len(files)}] {rel_path}: {e}", file=sys.stderr)
             continue
