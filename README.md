@@ -213,7 +213,18 @@ Vector and hybrid recall every judged document on this set. Reranking adds 0.007
 In that run, BM25 alone missed three quarters of the queries because `_build_fts_query` joined every token with AND, including words like "how", "does", and "the".
 In that run, a natural question such as "How does the admin API authenticate requests?" matched no chunk, while a keyword query such as "lsctl purge older-than" did.
 The keyword leg now uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
-A rerun after this change is recorded below.
+The first run at `833796a` used the AND query. The [rerun at `4117b89`](eval/results/2026-10-12-4117b89.md) used OR matching with the common-word filter.
+It used the same 30 eval queries, 45 documents, and services. The index built in 5.9 seconds.
+
+| Mode | Recall@5 | Recall@10 | nDCG@10 | p50 ms | p95 ms | Queries |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| bm25 | 0.950 | 0.967 | 0.840 | 0.49 | 0.75 | 30 |
+| vector | 1.000 | 1.000 | 0.936 | 39.42 | 43.74 | 30 |
+| hybrid | 1.000 | 1.000 | 0.987 | 43.16 | 45.75 | 30 |
+| hybrid_rerank | 1.000 | 1.000 | 0.992 | 964.79 | 1008.89 | 30 |
+
+BM25 alone went from recalling a quarter of the queries to nineteen in twenty. Hybrid nDCG@10 moved from 0.985 to 0.987.
+The rerank step's latency halved between runs because of a warm Ollama cache. That cause is outside the query change, so the latency columns are not comparable between the two tables.
 
 ## Tests
 

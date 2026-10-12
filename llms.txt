@@ -11,6 +11,7 @@
 
 - [eval/README.md](eval/README.md): Explains the synthetic judgments, metric definitions, and real run.
 - [eval/results/2026-10-12-833796a.md](eval/results/2026-10-12-833796a.md): Records the real local-model evaluation results.
+- [eval/results/2026-10-12-4117b89.md](eval/results/2026-10-12-4117b89.md): Records the OR matching rerun results.
 - [eval/run_eval.py](eval/run_eval.py): Checks passages, builds a fresh index, and writes measured reports.
 
 ## Configuration and packaging

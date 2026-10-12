@@ -1,0 +1,1445 @@
+{
+  "created_utc": "2026-10-12T20:21:53.563261+00:00",
+  "git_revision": "4117b89",
+  "package_version": "0.1.0",
+  "python_version": "3.13.11",
+  "sqlite_vec_version": "0.1.9",
+  "embedder": "Qwen3-Embedding-4B",
+  "embedding_model_id": "Qwen3-Embedding-4B",
+  "embedding_dims_configured": 2560,
+  "chunk_settings": {
+    "size": 6000,
+    "overlap": 600
+  },
+  "corpus": {
+    "documents": 45,
+    "chunks": 45
+  },
+  "hardware": {
+    "platform": "Linux-7.0.0-1019-nvidia-aarch64-with-glibc2.39",
+    "machine": "aarch64",
+    "gpu": "NVIDIA GB10"
+  },
+  "indexing_wall_seconds": 5.9940342450281605,
+  "chunks_db_bytes": 10985472,
+  "split": {
+    "eval_queries": 30,
+    "tune_queries": 10,
+    "tune_query_ids": [
+      "q05",
+      "q10",
+      "q15",
+      "q20",
+      "q25",
+      "q30",
+      "q34",
+      "q36",
+      "q38",
+      "q40"
+    ]
+  },
+  "modes": {
+    "bm25": {
+      "status": "run",
+      "query_count": 30,
+      "warmup_queries": 1,
+      "relevant_document_denominator": "judged relevant documents per query",
+      "recall_at_5": 0.95,
+      "recall_at_10": 0.9666666666666667,
+      "ndcg_at_10": 0.8403048480620865,
+      "p50_latency_ms": 0.48810202861204743,
+      "p95_latency_ms": 0.7486439368221908
+    },
+    "vector": {
+      "status": "run",
+      "query_count": 30,
+      "warmup_queries": 1,
+      "relevant_document_denominator": "judged relevant documents per query",
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 0.9358123185668492,
+      "p50_latency_ms": 39.42428802838549,
+      "p95_latency_ms": 43.74256712035276
+    },
+    "hybrid": {
+      "status": "run",
+      "query_count": 30,
+      "warmup_queries": 1,
+      "relevant_document_denominator": "judged relevant documents per query",
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 0.9871049064255153,
+      "p50_latency_ms": 43.15910144941881,
+      "p95_latency_ms": 45.75129235163331
+    },
+    "hybrid_rerank": {
+      "status": "run",
+      "query_count": 30,
+      "warmup_queries": 1,
+      "relevant_document_denominator": "judged relevant documents per query",
+      "recall_at_5": 1.0,
+      "recall_at_10": 1.0,
+      "ndcg_at_10": 0.9919720789148188,
+      "p50_latency_ms": 964.7883375291713,
+      "p95_latency_ms": 1008.8879792252554
+    }
+  },
+  "per_query": {
+    "q01": {
+      "query": "lsctl purge older-than",
+      "relevant_docs": [
+        "runbook-disk-full-cleanup.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 2
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        }
+      }
+    },
+    "q02": {
+      "query": "queue_depth_high threshold",
+      "relevant_docs": [
+        "runbook-queue-backlog-drain.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.5,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-queue-backlog-drain.md": 3
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-queue-backlog-drain.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-queue-backlog-drain.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-queue-backlog-drain.md": 1
+          }
+        }
+      }
+    },
+    "q03": {
+      "query": "LS-LNA-0133 noise figure",
+      "relevant_docs": [
+        "hw-lna-ls-lna-0133.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-lna-ls-lna-0133.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-lna-ls-lna-0133.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-lna-ls-lna-0133.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-lna-ls-lna-0133.md": 1
+          }
+        }
+      }
+    },
+    "q04": {
+      "query": "tsdb replica promote",
+      "relevant_docs": [
+        "runbook-database-failover.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-database-failover.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-database-failover.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-database-failover.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-database-failover.md": 1
+          }
+        }
+      }
+    },
+    "q06": {
+      "query": "page_size maximum",
+      "relevant_docs": [
+        "api-query-flights.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-query-flights.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-query-flights.md": 2
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-query-flights.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-query-flights.md": 1
+          }
+        }
+      }
+    },
+    "q07": {
+      "query": "max_frame_age_s",
+      "relevant_docs": [
+        "config-decoder.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "config-decoder.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "config-decoder.md": 2
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "config-decoder.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "config-decoder.md": 1
+          }
+        }
+      }
+    },
+    "q08": {
+      "query": "LK-NE-007 battery runtime",
+      "relevant_docs": [
+        "incident-2026-03-14-snowstorm-power.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-03-14-snowstorm-power.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-03-14-snowstorm-power.md": 2
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-03-14-snowstorm-power.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-03-14-snowstorm-power.md": 1
+          }
+        }
+      }
+    },
+    "q09": {
+      "query": "enrollment token expiry",
+      "relevant_docs": [
+        "runbook-node-provisioning.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-node-provisioning.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-node-provisioning.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-node-provisioning.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-node-provisioning.md": 1
+          }
+        }
+      }
+    },
+    "q11": {
+      "query": "SIM 2 failover",
+      "relevant_docs": [
+        "hw-cellular-modem.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-cellular-modem.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-cellular-modem.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-cellular-modem.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "hw-cellular-modem.md": 1
+          }
+        }
+      }
+    },
+    "q12": {
+      "query": "deploy freeze launch windows",
+      "relevant_docs": [
+        "process-change-management.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-change-management.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-change-management.md": 2
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-change-management.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-change-management.md": 1
+          }
+        }
+      }
+    },
+    "q13": {
+      "query": "dev stack port offset",
+      "relevant_docs": [
+        "onboarding-dev-environment.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "onboarding-dev-environment.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "onboarding-dev-environment.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "onboarding-dev-environment.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "onboarding-dev-environment.md": 1
+          }
+        }
+      }
+    },
+    "q14": {
+      "query": "How long can an ops token be used before it expires?",
+      "relevant_docs": [
+        "api-admin-control.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-admin-control.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-admin-control.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-admin-control.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "api-admin-control.md": 1
+          }
+        }
+      }
+    },
+    "q16": {
+      "query": "How many times may I restart a receiver in ten minutes?",
+      "relevant_docs": [
+        "runbook-receiver-restart.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-receiver-restart.md": 2
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-receiver-restart.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-receiver-restart.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-receiver-restart.md": 1
+          }
+        }
+      }
+    },
+    "q17": {
+      "query": "What caused the certificate outage in December 2025?",
+      "relevant_docs": [
+        "incident-2025-12-17-cert-expiry.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.5,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2025-12-17-cert-expiry.md": 3
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2025-12-17-cert-expiry.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2025-12-17-cert-expiry.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2025-12-17-cert-expiry.md": 1
+          }
+        }
+      }
+    },
+    "q18": {
+      "query": "Why did 9 nodes report wrong timestamps in January 2026?",
+      "relevant_docs": [
+        "incident-2026-01-22-gps-almanac.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-01-22-gps-almanac.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-01-22-gps-almanac.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-01-22-gps-almanac.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-01-22-gps-almanac.md": 1
+          }
+        }
+      }
+    },
+    "q19": {
+      "query": "What time window is used for firmware updates?",
+      "relevant_docs": [
+        "runbook-firmware-update.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-firmware-update.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-firmware-update.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-firmware-update.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-firmware-update.md": 1
+          }
+        }
+      }
+    },
+    "q21": {
+      "query": "How many satellites does the timing module need for a lock?",
+      "relevant_docs": [
+        "runbook-gps-lock-loss.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-gps-lock-loss.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-gps-lock-loss.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-gps-lock-loss.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-gps-lock-loss.md": 1
+          }
+        }
+      }
+    },
+    "q22": {
+      "query": "How many days of raw frames do we keep?",
+      "relevant_docs": [
+        "config-retention-policy.md",
+        "decision-0012-retention-reduction.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.8772153153380493,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "config-retention-policy.md": 4,
+            "decision-0012-retention-reduction.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "config-retention-policy.md": 2,
+            "decision-0012-retention-reduction.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "config-retention-policy.md": 2,
+            "decision-0012-retention-reduction.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "config-retention-policy.md": 1,
+            "decision-0012-retention-reduction.md": 2
+          }
+        }
+      }
+    },
+    "q23": {
+      "query": "At what disk usage does the alert fire on a node?",
+      "relevant_docs": [
+        "runbook-disk-full-cleanup.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-disk-full-cleanup.md": 1
+          }
+        }
+      }
+    },
+    "q24": {
+      "query": "How soon after an incident must the review be held?",
+      "relevant_docs": [
+        "process-incident-review.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.38685280723454163,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 5
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
+          }
+        }
+      }
+    },
+    "q26": {
+      "query": "Which board revision entered a boot loop on firmware 2.8.2?",
+      "relevant_docs": [
+        "hw-lr4-receiver-board.md",
+        "incident-2026-08-19-bad-firmware-rollout.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-lr4-receiver-board.md": 2,
+            "incident-2026-08-19-bad-firmware-rollout.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-lr4-receiver-board.md": 2,
+            "incident-2026-08-19-bad-firmware-rollout.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-lr4-receiver-board.md": 2,
+            "incident-2026-08-19-bad-firmware-rollout.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-lr4-receiver-board.md": 3,
+            "incident-2026-08-19-bad-firmware-rollout.md": 1
+          }
+        }
+      }
+    },
+    "q27": {
+      "query": "What is the format of a site ID?",
+      "relevant_docs": [
+        "decision-0004-fleet-site-ids.md",
+        "runbook-node-provisioning.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0004-fleet-site-ids.md": 1,
+            "runbook-node-provisioning.md": 2
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0004-fleet-site-ids.md": 1,
+            "runbook-node-provisioning.md": 2
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0004-fleet-site-ids.md": 1,
+            "runbook-node-provisioning.md": 2
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0004-fleet-site-ids.md": 1,
+            "runbook-node-provisioning.md": 2
+          }
+        }
+      }
+    },
+    "q28": {
+      "query": "What does a SEV1 incident mean?",
+      "relevant_docs": [
+        "process-incident-review.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "process-incident-review.md": 1
+          }
+        }
+      }
+    },
+    "q29": {
+      "query": "What is the tolerance for antenna azimuth?",
+      "relevant_docs": [
+        "runbook-antenna-realign.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6309297535714575,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 2
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
+          }
+        }
+      }
+    },
+    "q31": {
+      "query": "how long can the clock keep time with no satellites visible",
+      "relevant_docs": [
+        "hw-gps-timing-module.md",
+        "runbook-gps-lock-loss.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-gps-timing-module.md": 1,
+            "runbook-gps-lock-loss.md": 2
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-gps-timing-module.md": 2,
+            "runbook-gps-lock-loss.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-gps-timing-module.md": 2,
+            "runbook-gps-lock-loss.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "hw-gps-timing-module.md": 1,
+            "runbook-gps-lock-loss.md": 2
+          }
+        }
+      }
+    },
+    "q32": {
+      "query": "Which network port receives the fast datagram feed from nodes?",
+      "relevant_docs": [
+        "decision-0007-udp-primary-transport.md",
+        "incident-2025-11-03-packet-loss.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.8772153153380493,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0007-udp-primary-transport.md": 4,
+            "incident-2025-11-03-packet-loss.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0007-udp-primary-transport.md": 2,
+            "incident-2025-11-03-packet-loss.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0007-udp-primary-transport.md": 2,
+            "incident-2025-11-03-packet-loss.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0007-udp-primary-transport.md": 3,
+            "incident-2025-11-03-packet-loss.md": 1
+          }
+        }
+      }
+    },
+    "q33": {
+      "query": "When should the TLS cert for the gateway be replaced?",
+      "relevant_docs": [
+        "decision-0006-cert-automation.md",
+        "runbook-cert-renewal.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0006-cert-automation.md": 3,
+            "runbook-cert-renewal.md": 1
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0006-cert-automation.md": 3,
+            "runbook-cert-renewal.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0006-cert-automation.md": 3,
+            "runbook-cert-renewal.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.9197207891481876,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "decision-0006-cert-automation.md": 3,
+            "runbook-cert-renewal.md": 1
+          }
+        }
+      }
+    },
+    "q35": {
+      "query": "How far below its normal signal strength must a station fall before someone re-aims the aerial?",
+      "relevant_docs": [
+        "runbook-antenna-realign.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 0.0,
+          "recall_at_10": 0.0,
+          "ndcg_at_10": 0.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 16
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "runbook-antenna-realign.md": 1
+          }
+        }
+      }
+    },
+    "q37": {
+      "query": "which alert threshold signals weak reception, in decibels",
+      "relevant_docs": [
+        "incident-2026-06-05-false-snr-alerts.md",
+        "runbook-alert-silence.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 0.5,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.45560514958746035,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "incident-2026-06-05-false-snr-alerts.md": 6,
+            "runbook-alert-silence.md": 5
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "incident-2026-06-05-false-snr-alerts.md": 1,
+            "runbook-alert-silence.md": 2
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.6934264036172708,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "incident-2026-06-05-false-snr-alerts.md": 2,
+            "runbook-alert-silence.md": 3
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 2,
+          "relevant_doc_ranks": {
+            "incident-2026-06-05-false-snr-alerts.md": 1,
+            "runbook-alert-silence.md": 2
+          }
+        }
+      }
+    },
+    "q39": {
+      "query": "why did the dashboard return gateway errors in April 2026",
+      "relevant_docs": [
+        "incident-2026-04-30-dashboard-outage.md"
+      ],
+      "modes": {
+        "bm25": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 0.43067655807339306,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-04-30-dashboard-outage.md": 4
+          }
+        },
+        "vector": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-04-30-dashboard-outage.md": 1
+          }
+        },
+        "hybrid": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-04-30-dashboard-outage.md": 1
+          }
+        },
+        "hybrid_rerank": {
+          "recall_at_5": 1.0,
+          "recall_at_10": 1.0,
+          "ndcg_at_10": 1.0,
+          "relevant_document_count": 1,
+          "relevant_doc_ranks": {
+            "incident-2026-04-30-dashboard-outage.md": 1
+          }
+        }
+      }
+    }
+  },
+  "failure_examples": []
+}
