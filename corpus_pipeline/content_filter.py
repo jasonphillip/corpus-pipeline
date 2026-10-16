@@ -182,15 +182,17 @@ def information_density(text: str) -> float:
     return real_chars / total if total > 0 else 0.0
 
 
-def clean_chunk(text: str, min_density: float = 0.3) -> str | None:
+def clean_chunk(text: str, min_density: float = 0.3,
+                transcript: bool = False) -> str | None:
     """Clean a chunk by stripping boilerplate, then check information density.
 
     Returns cleaned text, or None if the chunk is too low-quality to keep.
     """
+    if transcript:
+        return text.strip() or None
     cleaned = strip_boilerplate(text)
     if not cleaned or len(cleaned.strip()) < 50:
         return None
     if information_density(cleaned) < min_density:
         return None
     return cleaned
-

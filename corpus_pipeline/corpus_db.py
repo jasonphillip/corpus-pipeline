@@ -19,6 +19,7 @@ from .embedder import get_dims
 # at insert time, which would corrupt the index if the embedder ever fell back
 # to a different model. Read the schema-declared dim once and validate.
 _VEC_DIM_RE = re.compile(r"embedding\s+float\[(\d+)\]")
+_METADATA_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]{0,63}")
 
 _FTS_COMMON_WORDS = frozenset({
     "a", "an", "the", "is", "are", "was", "were", "be", "do", "does", "did",
@@ -222,19 +223,50 @@ def _caption_filter(caption_mode: str, column: str) -> tuple[str, list]:
     return "", []
 
 
+def _metadata_filter(filters: list[tuple[str, str]], alias: str) -> tuple[str, list[str]]:
+    """Build a bound predicate with OR within a key and AND between keys."""
+    groups: dict[str, list[tuple[str, list[str]]]] = {}
+    for key, value in filters:
+        if not _METADATA_KEY_RE.fullmatch(key):
+            raise ValueError(f"invalid metadata key: {key!r}")
+        paths = [f"$.{key}"]
+        if key == "label":
+            paths.append("$.labels")
+        predicates = []
+        bound = []
+        for path in paths:
+            predicates.append(
+                f"EXISTS (SELECT 1 FROM json_each({alias}.metadata_json, ?) "
+                "WHERE CAST(value AS TEXT) = ?)"
+            )
+            bound.extend((path, value))
+        groups.setdefault(key, []).append(("(" + " OR ".join(predicates) + ")", bound))
+    if not groups:
+        return "", []
+    clause = " AND ".join("(" + " OR ".join(part for part, _ in values) + ")"
+                          for values in groups.values())
+    params = [param for values in groups.values() for _, bound in values for param in bound]
+    return " AND " + clause, params
+
+
 def search_bm25(conn: sqlite3.Connection, query: str, limit: int = 50,
-                caption_mode: str = "include") -> list[dict]:
+                caption_mode: str = "include",
+                metadata_filters: list[tuple[str, str]] | None = None) -> list[dict]:
     """Full-text BM25 search."""
     fts_query = _build_fts_query(query)
     if not fts_query:
         return []
-    clause, extra = _caption_filter(caption_mode, "content")
+    clause, extra = _caption_filter(caption_mode, "chunks_fts.content")
+    meta_clause, meta_params = _metadata_filter(metadata_filters or [], "c")
+    join = " JOIN chunks c ON c.id = chunks_fts.chunk_id" if meta_clause else ""
+    columns = ("chunks_fts.chunk_id, chunks_fts.source_path, chunks_fts.content"
+               if meta_clause else "chunk_id, source_path, content")
     try:
         rows = conn.execute(
-            "SELECT chunk_id, source_path, content, bm25(chunks_fts) as score "
-            "FROM chunks_fts WHERE chunks_fts MATCH ?" + clause +
+            "SELECT " + columns + ", bm25(chunks_fts) as score "
+            "FROM chunks_fts" + join + " WHERE chunks_fts MATCH ?" + clause + meta_clause +
             " ORDER BY score LIMIT ?",
-            (fts_query, *extra, limit)
+            (fts_query, *extra, *meta_params, limit)
         ).fetchall()
     except sqlite3.OperationalError as exc:
         message = str(exc).lower()
@@ -247,29 +279,36 @@ def search_bm25(conn: sqlite3.Connection, query: str, limit: int = 50,
 
 
 def search_vector(conn: sqlite3.Connection, query_embedding: bytes, limit: int = 50,
-                  caption_mode: str = "include") -> list[dict]:
+                  caption_mode: str = "include",
+                  metadata_filters: list[tuple[str, str]] | None = None) -> list[dict]:
     """Vector similarity search via sqlite-vec."""
     clause, extra = _caption_filter(caption_mode, "c.content")
     # KNN returns k rows BEFORE the caption predicate is applied, so over-fetch
     # for post-filter slack when a filter is active.
-    k = limit * 2 if clause else limit
+    meta_clause, meta_params = _metadata_filter(metadata_filters or [], "c")
+    k = limit * 2 if clause and not meta_clause else limit
+    knn_filter = (" AND v.id IN (SELECT id FROM chunks c WHERE 1=1" + meta_clause + ")"
+                  if meta_clause else "")
     rows = conn.execute(
         "SELECT v.id, v.distance, c.source_path, c.content "
         "FROM chunks_vec v "
         "JOIN chunks c ON c.id = v.id "
-        "WHERE v.embedding MATCH ? AND k = ?" + clause +
+        "WHERE v.embedding MATCH ? AND k = ?" + knn_filter + clause +
         " ORDER BY v.distance",
-        (query_embedding, k, *extra)
+        (query_embedding, k, *meta_params, *extra)
     ).fetchall()
     return [dict(r) for r in rows[:limit]]
 
 
 def search_hybrid(conn: sqlite3.Connection, query: str, query_embedding: bytes,
                   top_k: int = 10, per_source_limit: int = SEARCH_PER_SOURCE_LIMIT,
-                  caption_mode: str = "include") -> list[dict]:
+                  caption_mode: str = "include",
+                  metadata_filters: list[tuple[str, str]] | None = None) -> list[dict]:
     """Hybrid BM25 + vector search with score fusion and per-source dedup."""
-    bm25_results = search_bm25(conn, query, limit=top_k * 3, caption_mode=caption_mode)
-    vec_results = search_vector(conn, query_embedding, limit=top_k * 3, caption_mode=caption_mode)
+    bm25_results = search_bm25(conn, query, limit=top_k * 3, caption_mode=caption_mode,
+                               metadata_filters=metadata_filters)
+    vec_results = search_vector(conn, query_embedding, limit=top_k * 3, caption_mode=caption_mode,
+                                metadata_filters=metadata_filters)
 
     # Normalize BM25 scores (they're negative, lower = better)
     if bm25_results:
@@ -379,6 +418,49 @@ def search_hybrid(conn: sqlite3.Connection, query: str, query_embedding: bytes,
     for r in filtered:
         r["metadata"] = meta_by_id.get(r["id"], {})
 
+    return filtered
+
+
+def search_rrf_variants(conn: sqlite3.Connection, queries: list[tuple[str, bytes]],
+                        top_k: int = 10, per_source_limit: int = SEARCH_PER_SOURCE_LIMIT,
+                        caption_mode: str = "include",
+                        metadata_filters: list[tuple[str, str]] | None = None) -> list[dict]:
+    """Fuse BM25 and vector ranks over all query variants before source limits."""
+    fused: dict[int, dict] = {}
+    for query, embedding in queries:
+        bm25 = search_bm25(conn, query, top_k * 3, caption_mode, metadata_filters)
+        vector = search_vector(conn, embedding, top_k * 3, caption_mode, metadata_filters)
+        for kind, rows in (("bm25", bm25), ("vec", vector)):
+            for rank, row in enumerate(rows, 1):
+                cid = _normalize_chunk_id(row)
+                if cid not in fused:
+                    fused[cid] = {"id": cid, "score": 0.0, "vec_score": 0.0,
+                                  "bm25_score": 0.0, "source_path": row["source_path"],
+                                  "content": row["content"]}
+                fused[cid]["score"] += 1.0 / (60 + rank)
+                fused[cid][f"{kind}_score"] += 1.0 / (60 + rank)
+    scored = sorted(fused.values(), key=lambda row: row["score"], reverse=True)
+    filtered = []
+    source_counts: dict[str, int] = {}
+    for row in scored:
+        source = row["source_path"]
+        if source_counts.get(source, 0) >= per_source_limit:
+            continue
+        source_counts[source] = source_counts.get(source, 0) + 1
+        filtered.append(row)
+        if len(filtered) >= top_k:
+            break
+    ids = [row["id"] for row in filtered]
+    if ids:
+        marks = ",".join("?" * len(ids))
+        metadata = {}
+        for row in conn.execute(f"SELECT id, metadata_json FROM chunks WHERE id IN ({marks})", ids):
+            try:
+                metadata[row["id"]] = json.loads(row["metadata_json"] or "{}")
+            except (TypeError, json.JSONDecodeError):
+                metadata[row["id"]] = {}
+        for row in filtered:
+            row["metadata"] = metadata.get(row["id"], {})
     return filtered
 
 

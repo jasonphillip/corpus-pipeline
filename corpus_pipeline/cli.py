@@ -15,7 +15,7 @@ HELP = """corpus — local document acquisition, indexing, and search
 
   corpus research <topic> [--input sources.json]
   corpus acquire <topic> <url> [url ...]
-  corpus process <topic> [context|rag|both] [--force]
+  corpus process <topic> [context|rag|both] [--force] [--only paths.txt]
   corpus search <topic> <query ...>
   corpus search --corpora a,b <query ...>
   corpus first-mention <topic> <phrase> [options]
@@ -106,11 +106,18 @@ def _process(argv: list[str]) -> int:
     parser.add_argument("topic")
     parser.add_argument("mode", nargs="?", choices=["context", "rag", "both"], default="both")
     parser.add_argument("--force", action="store_true")
+    parser.add_argument("--only", type=Path, metavar="PATHS_FILE")
     args = parser.parse_args(argv)
-    if args.mode in {"context", "both"}:
+    if args.only and args.mode == "context":
+        parser.error("--only requires rag or both mode")
+    if args.mode in {"context", "both"} and args.only is None:
         build_context(args.topic)
     if args.mode in {"rag", "both"}:
-        process_topic(args.topic, force=args.force)
+        try:
+            process_topic(args.topic, force=args.force, only=args.only)
+        except (OSError, ValueError) as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
     stats: dict[str, object] = {}
     context_file = corpus_path(args.topic) / "processed" / "CONTEXT.md"
     if context_file.is_file():

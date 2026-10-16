@@ -6,7 +6,7 @@ This project helps one person index their own documents for search on one machin
 
 This repo turns a directory of documents into a local hybrid-search corpus in one SQLite file, combining FTS5 keyword scores with sqlite-vec vector scores and an optional local reranker.
 
-The mechanism is normalized weighted fusion of the two candidate lists.
+The default mechanism is normalized weighted fusion of the two candidate lists.
 
 Verify the mechanics with `python3 -m pytest tests/ -q`, then try the quickstart on `examples/docs/`.
 
@@ -20,6 +20,9 @@ The pipeline acquires, chunks, and indexes documents. Search combines FTS5 keywo
 Deduplication stays within each source. Deleting a raw file does not remove its indexed chunks.
 Legacy L2 vector indexes need the [documented rebuild](#rebuilding-a-legacy-l2-index).
 The BM25 keyword leg uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
+Transcript chunking, metadata filters, RRF, conversation caps, and passage display
+are opt-in. Query embedding now waits up to 120 seconds by default. A passage
+window is a snippet, not the full message.
 [Retrieval evaluation](#retrieval-evaluation) records the earlier AND behavior.
 
 ## Quickstart
@@ -60,6 +63,7 @@ Its CPU results say nothing about retrieval quality with a real embedding model.
 
 The [retrieval evaluation](#retrieval-evaluation) used 30 queries and 45 synthetic documents with a local embedding model.
 Its [measured results](eval/results/2026-10-12-833796a.md) show full vector recall on this easy set.
+The new processing and search options are opt-in and were not covered by that evaluation.
 
 ## Design decision
 
@@ -283,6 +287,7 @@ corpus process papers context
 corpus process papers rag
 corpus process papers both
 corpus process papers rag --force
+corpus process papers rag --only selected-paths.txt
 ```
 
 `context` creates a bounded `CONTEXT.md` and asks the configured local LLM for a
@@ -297,6 +302,22 @@ summary. `rag` performs the durable indexing path. It:
 7. Retries transient batch failures and isolates invalid chunks.
 8. Writes synchronized `chunks`, FTS5, sqlite-vec, and source-state rows.
 
+`--only` reads raw-relative paths, one per line. It reprocesses each listed file
+even when unchanged. It validates the full list before writing and leaves other
+sources intact. In default `both` mode, it skips the corpus-wide context rebuild.
+
+Set `"chunking": {"transcript": true}` in a corpus manifest to preserve role-headed
+conversations. A USER turn and its replies stay together where size permits. Short
+prompts, headers, and code survive; placeholder-only messages are omitted. Transcript
+chunks record `turn_start` and stay below 8,000 UTF-8 bytes. An optional
+`transcript_chunk_chars` in the same manifest section sets the character target.
+Existing indexes need `corpus process papers rag --force` to apply a changed mode.
+
+`corpus import-labels papers labels.jsonl` stores imported labels in the index and
+in `meta/imported-labels.json`. Reprocessing or rebuilding reapplies them by source
+and record ID. Label rows with a matching `source_hash` are marked `verified`;
+rows without that evidence, or whose raw source later changes, are `unverified`.
+
 Deduplication stays within each source, so shared text uses extra index storage but keeps each source searchable.
 Deleting a raw file does not remove its indexed chunks; processing and refresh do not sync deletions.
 For indexes built with corpus-wide deduplication, run `python3 -m corpus_pipeline process papers rag --force` once to restore shared owners.
@@ -308,16 +329,30 @@ corpus search my-docs "embedding dimension guard"
 corpus search --corpora my-docs,papers "index migration"
 corpus search --all --top-k 12 "source provenance"
 corpus search my-docs --no-captions "body text only"
+corpus search my-docs --meta kind=note --meta group=red --label alpha,beta "review"
 ```
 
 Each corpus produces BM25 and vector candidates. Federated search merges ranked lists
 with Reciprocal Rank Fusion. Large corpora can use local query expansion and reranking.
+`--meta KEY=VALUE` filters chunk metadata before BM25 and vector ranking. Repeat a key
+for alternatives; different keys combine. `--label A[,B]` matches the `label` and
+`labels` metadata written by `corpus import-labels`.
 If reranking fails, the command states that it returned hybrid order. It does not label
 those results as reranked.
+
+Per-corpus `manifest.json` may set `search.fusion` (`linear` or `rrf`),
+`search.expansion` (boolean), `search.conversation_cap` (non-negative integer), and
+`search.display` (`first` or `passage`). A passage shows a query window and its turn
+label when transcript metadata exists. The cap groups rows by `conversation_id` and
+is disabled when `--meta conversation_id=...` selects a conversation. Filtered
+searches omit `CONTEXT.md` sections. Context matches require whole query terms;
+multi-term queries need two distinct matches.
 
 The optional cross-encoder endpoint accepts `query` and `documents` at
 `/v1/rerank`. If it is unavailable, the pipeline tries the configured local LLM. If
 both fail, search keeps the hybrid order.
+Query embedding waits up to 120 seconds by default. A timeout reports
+`Embedding service busy` and exits with code 5.
 
 ## Chronological search
 
@@ -355,10 +390,17 @@ Environment variables override common deployment values:
 - `CORPUS_ROOT`
 - `CORPUS_EMBED_PROVIDER`, `CORPUS_EMBED_URL`, `CORPUS_EMBED_URL_2`
 - `CORPUS_EMBED_API_KEY`
+- `CORPUS_QUERY_EMBED_TIMEOUT` (seconds; query requests only)
 - `OLLAMA_HOST`
 - `CORPUS_LLM_CHAT_URL`, `CORPUS_LLM_CHAT_MODEL`, `CORPUS_LLM_CHAT_API_KEY`
 - `CORPUS_RERANK_URL`
 - `CORPUS_TOP_K`, `CORPUS_SEARCH_RERANK`, `CORPUS_QUERY_EXPANSION`
+- `CORPUS_SEARCH_FUSION`, `CORPUS_CONVERSATION_CAP`, `CORPUS_SEARCH_DISPLAY`
+
+Search setting precedence is explicit environment variable, then per-corpus
+`manifest.json` search entry, then `corpus.yml` search entry, then built-in default.
+The existing weighted fusion, expansion threshold, unlimited conversations, and
+opening-text display remain the defaults.
 
 API keys stay in environment variables or an untracked `corpus.yml`. The example file
 contains no credential.
@@ -373,6 +415,7 @@ contains no credential.
     meta/
       acquisition.log
       processing.log
+      imported-labels.json  # after import-labels
       hygiene.json          # optional
     processed/
       chunks.db

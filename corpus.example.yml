@@ -14,6 +14,7 @@ services:
     url: http://localhost:8000/v1/embeddings
     secondary_url: ""
     api_key: ""
+    query_timeout: 120
   ollama:
     base_url: http://localhost:11434
   chat:
@@ -42,8 +43,11 @@ chunking:
   default_overlap: 200
   openai_size: 6000
   openai_overlap: 600
+  # Transcript mode is set per corpus in manifest.json:
+  # "chunking": {"transcript": true, "transcript_chunk_chars": 6000}
 
 search:
+  # CLI filters: --meta KEY=VALUE (repeatable), --label A[,B].
   vector_weight: 0.7
   bm25_weight: 0.3
   mmr_lambda: 0.7
@@ -52,6 +56,10 @@ search:
   recency_weight: 0.15
   rerank: true
   query_expansion: true
+  # A corpus manifest may override these under its own "search" object.
+  fusion: linear
+  conversation_cap: 0
+  display: first
   smart_min_chunks: 500
   exclude_captions: false
   caption_prefix: "[Figure caption"
@@ -59,8 +67,8 @@ search:
 
 processing:
   context_token_budget: 100000
+  # Imported labels are stored per corpus in meta/imported-labels.json.
 
 acquisition:
   reader_prefix: https://r.jina.ai/
   max_file_mb: 10
-

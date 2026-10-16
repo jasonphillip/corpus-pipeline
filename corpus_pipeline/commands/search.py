@@ -12,6 +12,8 @@ the corpora that returned it. Reranker then re-scores the federated top-K.
 """
 
 import argparse
+import httpx
+import json
 import re
 import sys
 from pathlib import Path
@@ -23,8 +25,11 @@ from ..config import (
     SEARCH_EXCLUDE_CAPTIONS, SEARCH_CAPTION_PREFIX, SEARCH_PER_SOURCE_LIMIT,
     PRIMARY_CORPORA, CORPUS_ROOT,
 )
-from ..corpus_db import connect, search_hybrid, get_stats, get_vec_dim
+from ..corpus_db import (connect, search_hybrid, search_rrf_variants, get_stats,
+                         get_vec_dim, _METADATA_KEY_RE, _FTS_COMMON_WORDS)
 from ..embedder import embed_query, get_label
+from ..search_passage import passage_text
+from ..search_settings import corpus_search_settings
 
 
 
@@ -32,6 +37,11 @@ from ..embedder import embed_query, get_label
 # Cormack et al. 2009, "Reciprocal Rank Fusion outperforms Condorcet and individual
 # Rank Learning Methods", SIGIR.
 RRF_K = 60
+
+
+def _search_manifest(topic: str) -> dict:
+    path = corpus_path(topic) / "manifest.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
 
 
 def _rrf_merge(per_corpus_results: list[list[dict]], k: int = RRF_K) -> list[dict]:
@@ -61,7 +71,9 @@ def _rrf_merge(per_corpus_results: list[list[dict]], k: int = RRF_K) -> list[dic
 
 def _search_single_corpus(topic: str, queries: list[str], top_k: int,
                           captions: str = "include",
-                          per_source: int | None = None) -> list[dict]:
+                          per_source: int | None = None,
+                          metadata_filters: list[tuple[str, str]] | None = None,
+                          settings: dict | None = None) -> list[dict]:
     """Run hybrid search against one corpus for all query variants, dedup, tag.
 
     Returns results ordered best-first by the within-corpus hybrid score, with
@@ -69,6 +81,7 @@ def _search_single_corpus(topic: str, queries: list[str], top_k: int,
     _rrf_merge using each result's rank in this returned list.
     """
     db_path = corpus_path(topic) / "processed" / "chunks.db"
+    settings = settings or corpus_search_settings(topic, _search_manifest(topic))
     if not db_path.exists():
         print(f"[{topic}] no corpus database at {db_path} — skipping", file=sys.stderr)
         return []
@@ -86,6 +99,8 @@ def _search_single_corpus(topic: str, queries: list[str], top_k: int,
 
         # Per-query results merged by chunk id (best score wins)
         merged: dict[int, dict] = {}
+        rrf_queries: list[tuple[str, bytes]] = []
+        candidate_k = top_k * 3 if settings["conversation_cap"] else top_k
         for qi, q in enumerate(queries):
             q_emb = embed_query(q)
             if qi == 0:
@@ -102,25 +117,56 @@ def _search_single_corpus(topic: str, queries: list[str], top_k: int,
                           f"vs index {index_dims}d — embedder fell back to a "
                           f"different model; skipping this corpus")
                     return []
-            results = search_hybrid(conn, q, q_emb, top_k=top_k,
+            if settings["fusion"] == "rrf":
+                rrf_queries.append((q, q_emb))
+                continue
+            results = search_hybrid(conn, q, q_emb, top_k=candidate_k,
                                     per_source_limit=per_source or SEARCH_PER_SOURCE_LIMIT,
-                                    caption_mode=captions)
+                                    caption_mode=captions,
+                                    **({"metadata_filters": metadata_filters} if metadata_filters else {}))
             for r in results:
                 rid = r["id"]
                 if rid not in merged or r["score"] > merged[rid]["score"]:
                     merged[rid] = r
+        if rrf_queries:
+            rows = search_rrf_variants(
+                conn, rrf_queries, top_k=candidate_k,
+                per_source_limit=per_source or SEARCH_PER_SOURCE_LIMIT,
+                caption_mode=captions, metadata_filters=metadata_filters)
+            merged = {row["id"]: row for row in rows}
     finally:
         conn.close()
 
     out = list(merged.values())
     out.sort(key=lambda x: x["score"], reverse=True)
+    cap = settings["conversation_cap"]
+    pinned_conversations = {value for key, value in metadata_filters or []
+                            if key == "conversation_id"}
+    if len(pinned_conversations) == 1:
+        cap = 0
+    if cap:
+        counts: dict[str, int] = {}
+        limited = []
+        for row in out:
+            conversation = re.sub(
+                r"[^a-z0-9]", "",
+                str((row.get("metadata") or {}).get("conversation_id") or "").lower())
+            if conversation and counts.get(conversation, 0) >= cap:
+                continue
+            if conversation:
+                counts[conversation] = counts.get(conversation, 0) + 1
+            limited.append(row)
+            if len(limited) >= top_k:
+                break
+        out = limited
     for r in out:
         r["corpus"] = topic
     return out
 
 
 def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
-           captions: str = "include", per_source: int | None = None):
+           captions: str = "include", per_source: int | None = None,
+           metadata_filters: list[tuple[str, str]] | None = None):
     """Run hybrid search across one or more corpora and print merged results.
 
     For a single-corpus invocation the behavior mirrors the original single-
@@ -134,6 +180,9 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
     if not query or not query.strip():
         print("Error: empty query", file=sys.stderr)
         sys.exit(2)
+    for key, _ in metadata_filters or []:
+        if not _METADATA_KEY_RE.fullmatch(key):
+            raise ValueError(f"invalid metadata key: {key!r}")
 
     federated = len(corpora) > 1
 
@@ -172,7 +221,16 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
         sys.exit(3)
 
     use_rerank = SEARCH_RERANK and max_chunks >= SEARCH_SMART_MIN_CHUNKS
-    use_expansion = SEARCH_QUERY_EXPANSION and max_chunks >= SEARCH_SMART_MIN_CHUNKS
+    manifests = {topic: _search_manifest(topic) for topic in available}
+    settings_by_corpus = {topic: corpus_search_settings(topic, manifests[topic])
+                          for topic in available}
+    expansion_by_corpus = {}
+    for topic, settings in settings_by_corpus.items():
+        block = manifests[topic].get("search")
+        explicit = isinstance(block, dict) and block.get("expansion") is True
+        expansion_by_corpus[topic] = settings["expansion"] and (
+            max_chunks >= SEARCH_SMART_MIN_CHUNKS or explicit)
+    use_expansion = any(expansion_by_corpus.values())
 
     if federated:
         print(f"Federated search across {len(available)} corpora: {', '.join(available)}")
@@ -208,10 +266,19 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
     # Per-corpus retrieval. Each list is sorted best-first by within-corpus
     # hybrid score and tagged with its corpus name.
     per_corpus: list[list[dict]] = []
-    for t in available:
-        per_corpus.append(_search_single_corpus(t, all_queries, top_k,
-                                                captions=captions,
-                                                per_source=per_source))
+    try:
+        for t in available:
+            queries = all_queries if expansion_by_corpus[t] else [query]
+            per_corpus.append(_search_single_corpus(t, queries, top_k,
+                                                    captions=captions,
+                                                    per_source=per_source,
+                                                    settings=settings_by_corpus[t],
+                                                    **({"metadata_filters": metadata_filters} if metadata_filters else {})))
+    except httpx.TimeoutException:
+        from ..config import QUERY_EMBED_TIMEOUT
+        print(f"Embedding service busy: no query embedding within {QUERY_EMBED_TIMEOUT:g} s. "
+              "Retry later.", file=sys.stderr)
+        raise SystemExit(5)
 
     combined = _rrf_merge(per_corpus)
 
@@ -245,7 +312,7 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
 
     # CONTEXT.md injection — only meaningful for single-corpus searches. For
     # federation we'd be guessing which corpus's CONTEXT.md applies, so skip.
-    if not federated:
+    if not federated and not metadata_filters:
         context_sections = _find_context_sections(available[0], query)
         if context_sections:
             print(f"--- CONTEXT.md Sections ---\n")
@@ -267,9 +334,12 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
         corpus_tag = r.get("corpus", "")
         content = r["content"]
 
-        display = content[:500].strip()
-        if len(content) > 500:
-            display += "..."
+        if settings_by_corpus.get(corpus_tag, {}).get("display") == "passage":
+            display = passage_text(r, query)
+        else:
+            display = content[:500].strip()
+            if len(content) > 500:
+                display += "..."
 
         signals = []
         if vec_s > 0:
@@ -335,12 +405,17 @@ def _find_context_sections(topic: str, query: str, max_sections: int = 2) -> lis
     if not sections:
         return []
 
-    query_words = set(query.lower().split())
+    query_words = {word for word in re.findall(r"[\w+][\w.+\-]*", query.lower())
+                   if len(word) > 2 and word not in _FTS_COMMON_WORDS}
+    needed = min(2, len(query_words))
+    if not needed:
+        return []
     scored = []
     for header, body in sections:
-        section_text = (header + " " + body[:500]).lower()
-        matches = sum(1 for w in query_words if w in section_text and len(w) > 2)
-        if matches > 0:
+        section_words = set(re.findall(r"[\w+][\w.+\-]*",
+                                       (header + " " + body[:500]).lower()))
+        matches = len(query_words & section_words)
+        if matches >= needed:
             scored.append((matches, header, body))
 
     scored.sort(key=lambda x: x[0], reverse=True)
@@ -365,6 +440,10 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Search caption sidecars only (figure content).")
     p.add_argument("--per-source", dest="per_source", type=int, default=None,
                    help=f"Max results per source file. Default: {SEARCH_PER_SOURCE_LIMIT}.")
+    p.add_argument("--meta", action="append", default=[], metavar="KEY=VALUE",
+                   help="Filter chunk metadata; repeat for alternatives and combined keys.")
+    p.add_argument("--label", action="append", default=[], metavar="A[,B]",
+                   help="Filter imported labels; comma separates alternatives.")
     p.set_defaults(captions_mode=None)
     # nargs="*" + parse_intermixed_args (not REMAINDER): flags typed AFTER the
     # topic must still parse. REMAINDER silently folded them into the query
@@ -378,6 +457,23 @@ def _build_parser() -> argparse.ArgumentParser:
 def _parse_argv(argv=None):
     """Parse argv accepting options before AND after the positional tokens."""
     return _build_parser().parse_intermixed_args(argv)
+
+
+def _parse_metadata_filters(args) -> list[tuple[str, str]]:
+    filters = []
+    for item in args.meta:
+        if "=" not in item:
+            raise ValueError("--meta requires KEY=VALUE")
+        key, value = item.split("=", 1)
+        if not _METADATA_KEY_RE.fullmatch(key) or not value:
+            raise ValueError(f"invalid metadata filter: {item!r}")
+        filters.append((key, value))
+    for item in args.label:
+        values = [part.strip() for part in item.split(",")]
+        if not all(values):
+            raise ValueError("--label requires non-empty values")
+        filters.extend(("label", value) for value in values)
+    return filters
 
 
 def main(argv=None):
@@ -408,8 +504,13 @@ def main(argv=None):
 
     query = " ".join(query_tokens)
     captions = args.captions_mode or ("exclude" if SEARCH_EXCLUDE_CAPTIONS else "include")
+    try:
+        metadata_filters = _parse_metadata_filters(args)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
     search(corpora, query, top_k=args.top_k, captions=captions,
-           per_source=args.per_source)
+           per_source=args.per_source, metadata_filters=metadata_filters)
 
 
 if __name__ == "__main__":

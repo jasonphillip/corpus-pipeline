@@ -99,6 +99,10 @@ OPENAI_EMBED_URL = _str_env(
 EMBED_URL_2 = _str_env("CORPUS_EMBED_URL_2", "services.embedding.secondary_url", "")
 EMBED_API_KEY = _str_env("CORPUS_EMBED_API_KEY", "services.embedding.api_key", "")
 EMBED_PROVIDER = _str_env("CORPUS_EMBED_PROVIDER", "services.embedding.provider", "auto").lower()
+QUERY_EMBED_TIMEOUT = _float_env(
+    "CORPUS_QUERY_EMBED_TIMEOUT", "services.embedding.query_timeout", 120.0)
+if QUERY_EMBED_TIMEOUT <= 0:
+    raise ValueError("services.embedding.query_timeout must be positive")
 
 LLM_CHAT_URL = _str_env("CORPUS_LLM_CHAT_URL", "services.chat.url", "")
 LLM_CHAT_MODEL = _str_env("CORPUS_LLM_CHAT_MODEL", "services.chat.model", "")
@@ -143,6 +147,15 @@ SEARCH_RERANK_MODEL = MODEL_SCORING
 SEARCH_QUERY_EXPANSION = _env_bool(
     "CORPUS_QUERY_EXPANSION", bool(_cfg("search.query_expansion", True))
 )
+SEARCH_FUSION = _str_env("CORPUS_SEARCH_FUSION", "search.fusion", "linear").lower()
+SEARCH_CONVERSATION_CAP = _int_env("CORPUS_CONVERSATION_CAP", "search.conversation_cap", 0)
+SEARCH_DISPLAY = _str_env("CORPUS_SEARCH_DISPLAY", "search.display", "first").lower()
+if SEARCH_FUSION not in {"linear", "rrf"}:
+    raise ValueError("search.fusion must be 'linear' or 'rrf'")
+if SEARCH_CONVERSATION_CAP < 0:
+    raise ValueError("search.conversation_cap must be non-negative")
+if SEARCH_DISPLAY not in {"first", "passage"}:
+    raise ValueError("search.display must be 'first' or 'passage'")
 SEARCH_SMART_MIN_CHUNKS = _int_env(
     "CORPUS_SMART_MIN_CHUNKS", "search.smart_min_chunks", 500
 )

@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import struct
 from concurrent.futures import ThreadPoolExecutor
+from functools import lru_cache
 from typing import Any
 
 import httpx
 
-from .config import get_embedding_config
+from .config import QUERY_EMBED_TIMEOUT, get_embedding_config
 
 
 _QUERY_PREFIX = (
@@ -31,6 +32,7 @@ def reset_config_cache() -> None:
     global _config, _actual_dims
     _config = None
     _actual_dims = None
+    getattr(embed_query, "cache_clear", lambda: None)()
 
 
 def _probe_dims() -> int:
@@ -104,12 +106,13 @@ def embed_texts_parallel(
     return [result for result in results if result is not None]
 
 
+@lru_cache(maxsize=64)
 def embed_query(text: str) -> bytes:
     """Embed a query, applying the instruction used by Qwen3 embedding models."""
     cfg = _get_config()
     if "qwen3" in cfg.get("model", "").lower():
         text = f"{_QUERY_PREFIX}{text}"
-    return _pack_vector(_embed_raw(text, cfg))
+    return _pack_vector(_embed_raw(text, cfg, timeout=QUERY_EMBED_TIMEOUT))
 
 
 def get_dims() -> int:
@@ -122,10 +125,10 @@ def get_label() -> str:
     return str(_get_config()["label"])
 
 
-def _embed_raw(text: str, cfg: dict[str, Any]) -> list[float]:
+def _embed_raw(text: str, cfg: dict[str, Any], timeout: float = 30.0) -> list[float]:
     if cfg["provider"] == "openai":
-        return _embed_openai(text, cfg)
-    return _embed_ollama(text, cfg)
+        return _embed_openai(text, cfg, timeout)
+    return _embed_ollama(text, cfg, timeout)
 
 
 def _embed_batch_raw(texts: list[str], cfg: dict[str, Any]) -> list[list[float]]:
@@ -134,9 +137,9 @@ def _embed_batch_raw(texts: list[str], cfg: dict[str, Any]) -> list[list[float]]
     return _embed_ollama_batch(texts, cfg)
 
 
-def _embed_ollama(text: str, cfg: dict[str, Any]) -> list[float]:
+def _embed_ollama(text: str, cfg: dict[str, Any], timeout: float = 30.0) -> list[float]:
     response = httpx.post(
-        cfg["url"], json={"model": cfg["model"], "input": text}, timeout=30.0
+        cfg["url"], json={"model": cfg["model"], "input": text}, timeout=timeout
     )
     response.raise_for_status()
     return response.json()["embeddings"][0]
@@ -155,12 +158,12 @@ def _headers(cfg: dict[str, Any]) -> dict[str, str]:
     return {"Authorization": f"Bearer {api_key}"} if api_key else {}
 
 
-def _embed_openai(text: str, cfg: dict[str, Any]) -> list[float]:
+def _embed_openai(text: str, cfg: dict[str, Any], timeout: float = 30.0) -> list[float]:
     response = httpx.post(
         cfg["url"],
         headers=_headers(cfg),
         json={"model": cfg["model"], "input": text},
-        timeout=30.0,
+        timeout=timeout,
     )
     response.raise_for_status()
     data = response.json()
@@ -189,4 +192,3 @@ def _embed_openai_batch(texts: list[str], cfg: dict[str, Any]) -> list[list[floa
 def _pack_vector(vector: list[float]) -> bytes:
     """Pack a float list for sqlite-vec."""
     return struct.pack(f"<{len(vector)}f", *vector)
-

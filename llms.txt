@@ -16,7 +16,7 @@
 
 ## Configuration and packaging
 
-- [corpus.example.yml](corpus.example.yml): Provides example paths, local service endpoints, model settings, chunking, and search controls.
+- [corpus.example.yml](corpus.example.yml): Lists paths, services, query timeout, transcript mode, and search controls.
 - [pyproject.toml](pyproject.toml): Declares package metadata, dependencies, optional extras, and the `corpus` command.
 - [banned-strings.example.txt](banned-strings.example.txt): Shows an optional content-exclusion pattern file.
 
@@ -26,9 +26,13 @@
 - [corpus_pipeline/__main__.py](corpus_pipeline/__main__.py): Runs the command-line interface as a Python module.
 - [corpus_pipeline/config.py](corpus_pipeline/config.py): Loads YAML configuration and environment overrides.
 - [corpus_pipeline/corpus_db.py](corpus_pipeline/corpus_db.py): Manages SQLite chunk, full-text, vector, and source-state storage.
-- [corpus_pipeline/embedder.py](corpus_pipeline/embedder.py): Calls OpenAI-compatible or Ollama embedding services and checks vector dimensions.
-- [corpus_pipeline/commands/process.py](corpus_pipeline/commands/process.py): Performs incremental cleaning, chunking, embedding, and index updates.
-- [corpus_pipeline/commands/search.py](corpus_pipeline/commands/search.py): Runs hybrid and federated retrieval with optional expansion and reranking.
+- [corpus_pipeline/embedder.py](corpus_pipeline/embedder.py): Calls OpenAI-compatible or Ollama embedding services, bounds query waits, and checks vector dimensions.
+- [corpus_pipeline/commands/process.py](corpus_pipeline/commands/process.py): Performs incremental indexing, transcript chunking, and exact-file `--only` runs.
+- [corpus_pipeline/labels.py](corpus_pipeline/labels.py): Preserves imported labels outside the rebuildable index.
+- [corpus_pipeline/chunker.py](corpus_pipeline/chunker.py): Preserves role-headed exchanges when a corpus enables transcript mode.
+- [corpus_pipeline/commands/search.py](corpus_pipeline/commands/search.py): Runs hybrid and federated retrieval with `--meta`, `--label`, per-corpus options, and reranking.
+- [corpus_pipeline/search_settings.py](corpus_pipeline/search_settings.py): Resolves per-corpus search settings and environment overrides.
+- [corpus_pipeline/search_passage.py](corpus_pipeline/search_passage.py): Formats query windows with transcript turn labels.
 
 ## Examples and tests
 

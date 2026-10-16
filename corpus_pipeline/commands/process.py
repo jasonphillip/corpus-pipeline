@@ -97,6 +97,7 @@ from ..corpus_db import (
 from ..chunker import chunk_file
 from ..embedder import get_dims, get_label
 from ..hygiene import load_hygiene
+from ..labels import apply_imported_labels, load_registry
 from ..manifest import read_manifest, write_manifest, set_embedding_provenance
 
 
@@ -122,7 +123,7 @@ def parse_frontmatter(path: Path) -> dict[str, Any]:
         return {}
 
 
-def process_topic(topic: str, force: bool = False):
+def process_topic(topic: str, force: bool = False, only: Path | None = None):
     """Process all raw files for a topic into chunks.db.
 
     Idempotent by source-file SHA-256: unchanged files are skipped without
@@ -131,10 +132,29 @@ def process_topic(topic: str, force: bool = False):
     """
     raw_dir = corpus_path(topic) / "raw"
     meta_dir = corpus_path(topic) / "meta"
-    meta_dir.mkdir(parents=True, exist_ok=True)
+
+    # Resolve every selected path before opening the index or writing metadata.
+    selected = None
+    if only is not None:
+        paths = [line.strip() for line in only.read_text(encoding="utf-8").splitlines()
+                 if line.strip()]
+        if not paths:
+            raise ValueError("empty --only list")
+        selected = []
+        for rel_path in dict.fromkeys(paths):
+            candidate = Path(rel_path)
+            filepath = raw_dir / candidate
+            if (candidate.is_absolute() or ".." in candidate.parts or
+                    not filepath.resolve().is_relative_to(raw_dir.resolve()) or
+                    not filepath.is_file() or
+                    filepath.suffix not in {".md", ".mdx", ".txt", ".rst"}):
+                raise ValueError(f"invalid or missing --only path: {rel_path}")
+            selected.append(filepath)
 
     # Build source URL -> content_date mapping from manifest
     manifest = read_manifest(topic)
+    chunking = manifest.get("chunking")
+    transcript = isinstance(chunking, dict) and chunking.get("transcript") is True
     source_dates: dict[str, str] = {}
     for s in manifest.get("sources", []):
         cd = s.get("content_date", "")
@@ -144,18 +164,24 @@ def process_topic(topic: str, force: bool = False):
     if not raw_dir.exists():
         print(f"Error: no raw directory at {raw_dir}", file=sys.stderr)
         sys.exit(1)
+    meta_dir.mkdir(parents=True, exist_ok=True)
 
     # Get embedding config
     embed_cfg = get_embedding_config()
     dims = get_dims()
     chunk_size = embed_cfg["chunk_size"]
+    if transcript and chunking.get("transcript_chunk_chars") is not None:
+        chunk_size = int(chunking["transcript_chunk_chars"])
+        if chunk_size < 1:
+            raise ValueError("chunking.transcript_chunk_chars must be positive")
     print(f"Embedding: {get_label()}")
     print(f"Dimensions: {dims}")
     print(f"Chunk size: {chunk_size} chars")
 
     # Collect files
-    files = sorted(f for f in raw_dir.rglob("*")
-                   if f.is_file() and f.suffix in {".md", ".mdx", ".txt", ".rst"})
+    files = selected if selected is not None else sorted(
+        f for f in raw_dir.rglob("*")
+        if f.is_file() and f.suffix in {".md", ".mdx", ".txt", ".rst"})
     print(f"\nFiles to process: {len(files)}")
 
     if not files:
@@ -165,6 +191,7 @@ def process_topic(topic: str, force: bool = False):
     # Initialize database
     conn = connect(topic)
     init_schema(conn, dims)
+    label_registry = load_registry(topic, corpus_path(topic))
 
     # Apply optional exclusions and metadata flags without changing raw files.
     hygiene = load_hygiene(topic)
@@ -179,7 +206,10 @@ def process_topic(topic: str, force: bool = False):
             else:
                 kept.append(f)
         files = kept
+        selected_paths = {str(path.relative_to(raw_dir)) for path in files}
         for sp in hygiene.excluded_sources(conn):
+            if selected is not None and sp not in selected_paths:
+                continue
             delete_by_source(conn, sp)
             purged_sources += 1
         if purged_sources:
@@ -216,7 +246,7 @@ def process_topic(topic: str, force: bool = False):
             # Fast O(1) DB lookup + a SHA-256 of the file; lets re-runs converge
             # in seconds when nothing has changed upstream.
             src_hash = _file_hash(filepath)
-            if not force and get_source_hash(conn, rel_path) == src_hash:
+            if not force and only is None and get_source_hash(conn, rel_path) == src_hash:
                 skipped_unchanged += 1
                 # Hygiene flags can arrive after a source was indexed (e.g. a
                 # link table installed later). Apply them here as a pure
@@ -237,12 +267,14 @@ def process_topic(topic: str, force: bool = False):
                 flagged_sources += 1
 
             # Chunk the file
-            chunks = chunk_file(filepath, chunk_size=chunk_size)
+            chunks = chunk_file(filepath, chunk_size=chunk_size,
+                                **({"transcript": True} if transcript else {}))
             # Clean chunks — strip boilerplate and check density
             cleaned_chunks = []
             noise_filtered = 0
             for c in chunks:
-                cleaned_text = clean_chunk(c["content"])
+                cleaned_text = clean_chunk(c["content"],
+                                           **({"transcript": True} if transcript else {}))
                 if cleaned_text is not None:
                     c["content"] = cleaned_text
                     cleaned_chunks.append(c)
@@ -315,6 +347,7 @@ def process_topic(topic: str, force: bool = False):
                         if v:
                             meta["ts"] = v
                             break
+                apply_imported_labels(label_registry, rel_path, meta, src_hash)
                 result = insert_chunk(
                     conn, rel_path, chunk["index"],
                     chunk["content"], emb, meta
@@ -404,8 +437,14 @@ def main():
     parser.add_argument("topic", help="Corpus topic name (subdir of ~/.corpus/)")
     parser.add_argument("--force", action="store_true",
                         help="Re-process every file even if its hash is unchanged")
+    parser.add_argument("--only", type=Path, metavar="PATHS_FILE",
+                        help="Reprocess only listed paths relative to raw/")
     args = parser.parse_args()
-    process_topic(args.topic, force=args.force)
+    try:
+        process_topic(args.topic, force=args.force, only=args.only)
+    except (OSError, ValueError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
 
 
 if __name__ == "__main__":
