@@ -224,6 +224,9 @@ Mean Recall@5 for BM25 alone rose from 0.250 to 0.950. Hybrid nDCG@10 moved from
 Vector and hybrid recall every judged document on this set. Reranking adds 0.007 nDCG@10 at about 40 times the p50 latency.
 The rerank step's latency halved between runs because of a warm Ollama cache. That cause is outside the query change, so the latency columns are not comparable between the two tables.
 
+A [2026-10-16 rerun](eval/results/2026-10-16-10ef530.md) at git revision `10ef530`, after the opt-in transcript, filter and search-setting options landed, reproduced every Recall and nDCG value of the 2026-10-12 rerun with default settings.
+Its hybrid p50 fell to 2.33 ms because query vectors are now cached per process and the vector mode embeds the same queries first, so that figure excludes the embedding call.
+
 Run the evaluation from the repository root with the same local services.
 
 ```bash
