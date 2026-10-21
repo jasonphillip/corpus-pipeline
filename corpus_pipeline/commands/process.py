@@ -94,7 +94,7 @@ from ..corpus_db import (
     connect, init_schema, insert_chunk, delete_by_source, get_stats,
     get_source_hash, upsert_source, content_hash,
 )
-from ..chunker import chunk_file
+from ..chunker import chunk_file, chunk_profiled_file
 from ..embedder import get_dims, get_label
 from ..hygiene import load_hygiene
 from ..labels import apply_imported_labels, load_registry
@@ -154,7 +154,11 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
     # Build source URL -> content_date mapping from manifest
     manifest = read_manifest(topic)
     chunking = manifest.get("chunking")
-    transcript = isinstance(chunking, dict) and chunking.get("transcript") is True
+    chunking = chunking if isinstance(chunking, dict) else {}
+    mode = chunking.get("mode") or ("transcript" if chunking.get("transcript") is True else "generic")
+    if mode not in {"generic", "transcript", "email_thread", "chat_sessions", "document"}:
+        raise ValueError(f"invalid chunking mode: {mode}")
+    transcript = mode == "transcript"
     source_dates: dict[str, str] = {}
     for s in manifest.get("sources", []):
         cd = s.get("content_date", "")
@@ -170,10 +174,25 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
     embed_cfg = get_embedding_config()
     dims = get_dims()
     chunk_size = embed_cfg["chunk_size"]
+    chunk_overlap = embed_cfg.get("chunk_overlap", 200)
+    if mode == "generic":
+        chunk_size = chunking.get("chunk_chars", chunk_size)
+        chunk_overlap = chunking.get("overlap_chars", chunk_overlap)
     if transcript and chunking.get("transcript_chunk_chars") is not None:
         chunk_size = int(chunking["transcript_chunk_chars"])
         if chunk_size < 1:
             raise ValueError("chunking.transcript_chunk_chars must be positive")
+    if mode != "generic" and not (transcript and "mode" not in chunking):
+        default_size, default_overlap = {
+            "email_thread": (3000, 300), "chat_sessions": (1500, 150),
+            "transcript": (3000, 300), "document": (6000, 600),
+        }[mode]
+        chunk_size = chunking.get("chunk_chars", default_size)
+        chunk_overlap = chunking.get("overlap_chars", default_overlap)
+    if (type(chunk_size) is not int or chunk_size < 100 or
+            type(chunk_overlap) is not int or chunk_overlap < 0 or
+            chunk_overlap >= chunk_size):
+        raise ValueError("invalid chunk_chars or overlap_chars")
     print(f"Embedding: {get_label()}")
     print(f"Dimensions: {dims}")
     print(f"Chunk size: {chunk_size} chars")
@@ -267,14 +286,20 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
                 flagged_sources += 1
 
             # Chunk the file
-            chunks = chunk_file(filepath, chunk_size=chunk_size,
-                                **({"transcript": True} if transcript else {}))
+            if mode != "generic" and not (transcript and "mode" not in chunking):
+                chunks = chunk_profiled_file(
+                    filepath, mode, frontmatter, chunk_size, chunk_overlap,
+                    prefix=chunking.get("prefix", True), channel=chunking.get("channel"))
+            else:
+                chunks = chunk_file(filepath, chunk_size=chunk_size,
+                                    **({"overlap": chunk_overlap} if "overlap_chars" in chunking else {}),
+                                    **({"transcript": True} if transcript else {}))
             # Clean chunks — strip boilerplate and check density
             cleaned_chunks = []
             noise_filtered = 0
             for c in chunks:
                 cleaned_text = clean_chunk(c["content"],
-                                           **({"transcript": True} if transcript else {}))
+                                           **({"transcript": True} if mode != "generic" else {}))
                 if cleaned_text is not None:
                     c["content"] = cleaned_text
                     cleaned_chunks.append(c)

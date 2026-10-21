@@ -21,6 +21,10 @@ HELP = """corpus — local document acquisition, indexing, and search
   corpus first-mention <topic> <phrase> [options]
   corpus refresh <snapshot|diff> <topic>
   corpus health [options]
+  corpus eval <build|run|compare> [options]
+  corpus context <write|apply|status|prune> [options]
+  corpus shadow <topic> <suffix> [--mapping profiles.yml]
+  corpus profiles apply --mapping profiles.yml [--dry-run]
   corpus list
   corpus config
 
@@ -170,6 +174,18 @@ def main(argv: list[str] | None = None) -> int:
         return first_main(args)
     if command == "refresh":
         return _refresh(args)
+    if command == "eval":
+        from .retrieval_eval.cli import main as eval_main
+        return eval_main(args)
+    if command == "context":
+        from .commands.context_chunks import main as context_main
+        return context_main(args)
+    if command == "shadow":
+        from .commands.shadow import main as shadow_main
+        return shadow_main(args)
+    if command == "profiles":
+        from .commands.profiles import main as profiles_main
+        return profiles_main(args)
     if command == "health":
         from .commands.health import main as health_main
         return health_main(args)

@@ -1,0 +1,11 @@
+my-docs:
+  chunking:
+    mode: document
+    chunk_chars: 6000
+    overlap_chars: 600
+    prefix: true
+  search:
+    fusion: rrf
+    expansion: false
+    conversation_cap: 2
+    display: passage

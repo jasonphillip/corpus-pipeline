@@ -87,14 +87,14 @@ HEALTH_ROOT = _path_env(
     CORPUS_ROOT / "health",
 )
 
-OLLAMA_HOST = _str_env("OLLAMA_HOST", "services.ollama.base_url", "http://localhost:11434").rstrip("/")
+OLLAMA_HOST = _str_env("OLLAMA_HOST", "services.ollama.base_url", "http://127.0.0.1:11434").rstrip("/")
 OLLAMA_GENERATE_URL = f"{OLLAMA_HOST}/api/generate"
 OLLAMA_EMBED_URL = f"{OLLAMA_HOST}/api/embed"
 
 OPENAI_EMBED_URL = _str_env(
     "CORPUS_EMBED_URL",
     "services.embedding.url",
-    "http://localhost:8000/v1/embeddings",
+    "http://127.0.0.1:8000/v1/embeddings",
 )
 EMBED_URL_2 = _str_env("CORPUS_EMBED_URL_2", "services.embedding.secondary_url", "")
 EMBED_API_KEY = _str_env("CORPUS_EMBED_API_KEY", "services.embedding.api_key", "")
@@ -110,8 +110,19 @@ LLM_CHAT_API_KEY = _str_env("CORPUS_LLM_CHAT_API_KEY", "services.chat.api_key", 
 RERANK_URL = _str_env(
     "CORPUS_RERANK_URL",
     "services.reranker.url",
-    "http://localhost:8003/v1/rerank",
+    "http://127.0.0.1:8003/v1/rerank",
 )
+RERANK_TEMPLATE_TOKENS = 128
+RERANK_QUERY_MAX_BYTES = 1024
+
+
+def rerank_limits() -> tuple[int, int]:
+    """Return positive document-window and reranker batch limits."""
+    window = int(os.environ.get("CORPUS_RERANK_DOC_CHARS", "4000"))
+    batch = int(os.environ.get("CORPUS_RERANK_BATCH_TOKENS", "4096"))
+    if window < 1 or batch < 1:
+        raise ValueError("rerank limits must be positive")
+    return window, batch
 
 MODEL_SCORING = _str_env("CORPUS_SCORING_MODEL", "models.scoring", "qwen3:14b")
 MODEL_TRIAGE = _str_env("CORPUS_TRIAGE_MODEL", "models.triage", "qwen3:8b")
@@ -142,6 +153,9 @@ SEARCH_MMR_LAMBDA = _float_env("CORPUS_MMR_LAMBDA", "search.mmr_lambda", 0.7)
 SEARCH_TOP_K = _int_env("CORPUS_TOP_K", "search.top_k", 30)
 SEARCH_PER_SOURCE_LIMIT = _int_env("CORPUS_PER_SOURCE_LIMIT", "search.per_source_limit", 3)
 SEARCH_RECENCY_WEIGHT = _float_env("CORPUS_RECENCY_WEIGHT", "search.recency_weight", 0.15)
+SEARCH_FTS_PHRASE = _env_bool("SEARCH_FTS_PHRASE", bool(_cfg("search.fts_phrase", True)))
+SEARCH_PHRASE_BONUS = _float_env("SEARCH_PHRASE_BONUS", "search.phrase_bonus", 0.5)
+SEARCH_PHRASE_RRF_WEIGHT = _float_env("SEARCH_PHRASE_RRF_WEIGHT", "search.phrase_rrf_weight", 3.0)
 SEARCH_RERANK = _env_bool("CORPUS_SEARCH_RERANK", bool(_cfg("search.rerank", True)))
 SEARCH_RERANK_MODEL = MODEL_SCORING
 SEARCH_QUERY_EXPANSION = _env_bool(

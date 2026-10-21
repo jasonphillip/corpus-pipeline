@@ -193,6 +193,93 @@ Run `ollama serve` in a separate terminal unless Ollama is already serving at
 largest searched corpus has at least 500 chunks. A configured `/v1/rerank`
 cross-encoder takes precedence over Ollama reranking.
 
+## Retrieval upgrades (2026-10)
+
+### Canonical dates
+
+The chunk date uses `ts`, `recording_start`, `first`, `started_at`, `date`,
+`created_at`, `content_date`, `period`, then `original_mtime`, in that order.
+First-mention, health ranges, recency, and date filters use the same date.
+
+```bash
+corpus first-mention my-docs "amber relay"
+corpus health --scope all --no-persist
+```
+
+### Search
+
+Search adds a phrase channel for the whole query and each quoted segment;
+`SEARCH_FTS_PHRASE=1`, `SEARCH_PHRASE_BONUS=0.5`, and
+`SEARCH_PHRASE_RRF_WEIGHT=3.0` control the channel and its linear and RRF tiers.
+`CORPUS_SEARCH_FUSION=rrf` selects RRF, and `CORPUS_RECENCY_WEIGHT=0.15`
+ranks dated hits; `--since` and `--until`
+include the full year, month, or day and exclude undated chunks.
+`CORPUS_RERANK_DOC_CHARS=4000` selects the best query window, and
+`CORPUS_RERANK_BATCH_TOKENS=4096` bounds the reranker payload.
+
+```bash
+export CORPUS_EMBED_URL=http://127.0.0.1:8000/v1/embeddings
+export CORPUS_RERANK_URL=http://127.0.0.1:8003/v1/rerank
+corpus search my-docs --since 2025-01 --until 2025-12 '"amber relay"'
+```
+
+### Structured chunking
+
+Set `chunking.mode` to `generic`, `transcript`, `email_thread`,
+`chat_sessions`, or `document`; `chunking.chunk_chars`,
+`chunking.overlap_chars`, and `chunking.prefix` tune each profile.
+Structured chunks carry a prefix and `prefix_len`, plus per-chunk `ts` and
+`conversation_id` when the source provides them; the YAML or JSON mapping
+contains corpus names, with no names built into the script.
+
+```bash
+python3 scripts/apply_corpus_profiles.py apply --mapping examples/profiles.yml --dry-run
+corpus profiles apply --mapping examples/profiles.yml
+corpus shadow my-docs candidate --mapping examples/profiles.yml
+```
+
+### Retrieval evaluation
+
+`corpus eval build` generates synthetic whole, late, phrase, and temporal
+questions through `EVAL_LLM_URL=http://127.0.0.1:11434/v1` and
+`EVAL_LLM_MODEL=qwen3:14b`; set `EVAL_LLM_API_KEY` if the endpoint needs a bearer token.
+`corpus eval run` reports strict, source, and answer-span Recall@k, MRR, and
+nDCG, with `--since` and `--until` passed to retrieval.
+`corpus eval compare` uses a paired bootstrap on shared question IDs; use
+`--append-regression /tmp/regressions.jsonl` on build for known queries.
+
+```bash
+corpus eval build --corpus my-docs --n 120 --seed 7 --out /tmp/my-docs-questions.jsonl
+corpus eval run --questions /tmp/my-docs-questions.jsonl --label baseline --out /tmp/my-docs-baseline.json
+corpus eval run --questions /tmp/my-docs-questions.jsonl --label candidate --search-arg fusion=rrf --out /tmp/my-docs-candidate.json
+corpus eval compare /tmp/my-docs-baseline.json /tmp/my-docs-candidate.json
+```
+
+### Contextual retrieval
+
+`corpus context write` stores hash-keyed context in `chunk_context` through
+`CONTEXT_LLM_URL=http://127.0.0.1:11434/v1` and `CONTEXT_LLM_MODEL=qwen3:14b`;
+set `CONTEXT_LLM_API_KEY` for a bearer token.
+`corpus context apply` re-embeds context plus content and adds `context_fts`
+to BM25 token and phrase search; `SEARCH_CONTEXT_FTS=0` disables that channel.
+`status` and `prune` inspect and clean the sidecar, and the example nightly
+script uses `CORPUS_CONTEXT_TOPICS` to select corpora without a host-specific unit.
+
+```bash
+corpus context write --corpus my-docs --limit 100
+corpus context apply --corpus my-docs
+corpus context status --corpus my-docs
+corpus context prune --corpus my-docs
+CORPUS_CONTEXT_TOPICS=my-docs scripts/context_nightly.sh
+```
+
+### Measured on private data
+
+On a 120-question synthetic set over a 126k-chunk personal email index, the
+exact-phrase tier lifted phrase-query Recall@1 from 0.03 to 0.37 and overall
+MRR from 0.26 to 0.35 without a reranker.
+These are the author's private data, synthetic questions, one run.
+
 ## Retrieval evaluation
 
 The [evaluation method](eval/README.md) checks passages and compares document-level retrieval modes.

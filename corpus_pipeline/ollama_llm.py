@@ -115,21 +115,65 @@ Be concise and factual:"""
     return generate(prompt, model=MODEL_SCORING)
 
 
+def best_rerank_window(query: str, content: str, window: int) -> str:
+    """Choose a query-rich window, retaining a short leading title."""
+    from .corpus_db import _fts_tokens
+    if window <= 0:
+        return ""
+    first = content.split("\n", 1)[0].strip()
+    title = first + "\n" if first and (first.startswith("#") or len(first) < 120) else ""
+    available = max(1, window - len(title)) if title else window
+    tokens = [token.casefold() for token in _fts_tokens(query)]
+    phrase = " ".join(query.casefold().strip('"').split())
+    end = max(0, len(content) - available)
+    starts = list(range(0, end + 1, 500))
+    if not starts or starts[-1] != end:
+        starts.append(end)
+    def score(start: int) -> int:
+        passage = content[start:start + available].casefold()
+        return sum(token in passage for token in tokens) + (len(tokens) + 1 if phrase and phrase in passage else 0)
+    best = max(starts, key=score)
+    passage = content[best:best + available]
+    return passage[:window] if best == 0 or passage.startswith(title) else (title + passage)[:window]
+
+
+def _cut_bytes(text: str, limit: int) -> str:
+    """Return the longest UTF-8 prefix within the byte limit."""
+    return text.encode("utf-8")[:max(limit, 0)].decode("utf-8", errors="ignore")
+
+
+def _budgeted_rerank_window(query: str, content: str, window: int, budget: int) -> str:
+    """Reselect a smaller window if UTF-8 bytes exceed the service budget."""
+    size = min(window, max(0, budget))
+    while size > 0:
+        passage = best_rerank_window(query, content, size)
+        actual = len(passage.encode("utf-8"))
+        if actual <= budget:
+            return passage
+        size = min(size - 1, max(1, size * budget // actual))
+    return ""
+
+
 def _rerank_cross_encoder(query: str, chunks: list[dict], timeout: float = 30.0):
     """Rerank via the llama.cpp cross-encoder endpoint (RERANK_URL).
 
     Returns (scored_chunks, None) on success — each chunk carries rerank_score
     and rerank_engine="cross-encoder" — or (None, reason) on any failure so the
     caller can fall through to the LLM prompt path and report why."""
-    from .config import RERANK_URL
+    from .config import (RERANK_QUERY_MAX_BYTES, RERANK_TEMPLATE_TOKENS,
+                         RERANK_URL, rerank_limits)
     try:
-        docs = [c.get("content", "")[:2000] for c in chunks]
+        window, batch = rerank_limits()
+        query = _cut_bytes(query, RERANK_QUERY_MAX_BYTES)
+        budget = batch - RERANK_TEMPLATE_TOKENS - len(query.encode("utf-8"))
+        docs = [_budgeted_rerank_window(query, c.get("content", ""), window, budget)
+                for c in chunks]
         r = httpx.post(RERANK_URL, json={"query": query, "documents": docs}, timeout=timeout)
         if r.status_code == 500 and "too large" in r.text:
             # llama-server rejects (query+doc) pairs over its physical batch
             # size (-ub, default 512 tokens). Retry once with a cap that fits
             # a default-configured server (~300-400 tokens per doc).
-            docs = [d[:1200] for d in docs]
+            docs = [best_rerank_window(query, c.get("content", ""), 1200) for c in chunks]
             r = httpx.post(RERANK_URL, json={"query": query, "documents": docs}, timeout=timeout)
         r.raise_for_status()
         results = r.json().get("results")
@@ -169,10 +213,10 @@ def rerank_chunks(query: str, chunks: list[dict], model: str = MODEL_SCORING,
     if cross is not None:
         return cross
 
-    # Build batch prompt with all chunks (cap each at 800 chars)
+    # Build a bounded batch prompt from each chunk's strongest query window.
     chunk_lines = []
     for i, chunk in enumerate(chunks):
-        content = chunk.get("content", "")[:800].replace("\n", " ")
+        content = best_rerank_window(query, chunk.get("content", ""), 800).replace("\n", " ")
         chunk_lines.append(f"Chunk {i+1}: {content}")
     chunks_text = "\n\n".join(chunk_lines)
 

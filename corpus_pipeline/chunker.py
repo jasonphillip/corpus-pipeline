@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from datetime import datetime
 
 from .config import CHUNK_SIZE, CHUNK_OVERLAP, get_embedding_config
 
@@ -15,7 +16,195 @@ TRANSCRIPT_PLACEHOLDERS = frozenset({"", "the output of this plugin was redacted
 TRANSCRIPT_PACK_CHARS = 1500
 _ROLE_HEADER = re.compile(
     r"^## (?:(?:Turn (\d+) · (USER|ASSISTANT|TOOL|SYSTEM)[^\n]*)|"
-    r"(?:(USER|ASSISTANT|TOOL|SYSTEM) \(turn (\d+)\)))$", re.MULTILINE)
+    r"(?:(USER|ASSISTANT|TOOL|SYSTEM) \(turn (\d+)\))|"
+    r"(Prompt|Response))$|^\*\*(spk_\d+):\*\*", re.MULTILINE)
+
+
+_EMAIL_HEADER = re.compile(r"^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) — (.+)$", re.M)
+_SESSION_HEADER = re.compile(r"^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) session$", re.M)
+_QUOTE_START = re.compile(r"^(?:On .{5,120} wrote:|-----Original Message-----)")
+
+
+def _with_prefix(body: str, prefix: str, metadata: dict, path: Path) -> dict:
+    lead = prefix + "\n\n" if prefix else ""
+    content = lead + body
+    return {"content": content, "metadata": {"source": str(path.resolve()),
+            "chunk_size": len(content), "prefix_len": len(lead), **metadata}}
+
+
+def _pieces(body: str, header: str, limit: int, overlap: int,
+            *, separator: str) -> list[str]:
+    """Split an oversized body while repeating its governing header."""
+    capacity = max(1, limit - len(header))
+    if len(header + body) <= limit:
+        return [header + body]
+    units = body.splitlines(keepends=True) if separator == "\n" else re.split(r"(?<=\n\n)", body)
+    if len(units) == 1:
+        units = body.splitlines(keepends=True)
+    out, current = [], ""
+    def tail(value: str) -> str:
+        if not overlap:
+            return ""
+        boundary = "\n" if separator == "\n" else "\n\n"
+        candidate = value[-min(overlap, max(0, capacity // 3)):]
+        at = candidate.find(boundary)
+        return candidate[at + len(boundary):] if at >= 0 else ""
+
+    for unit in units:
+        if current and len(current + unit) > capacity:
+            out.append(header + current)
+            current = tail(current)
+        while len(current + unit) > capacity and unit:
+            take = max(1, capacity - len(current))
+            current += unit[:take]
+            unit = unit[take:]
+            out.append(header + current)
+            current = tail(current)
+        current += unit
+    if current.strip():
+        out.append(header + current)
+    return out
+
+
+def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
+                        chunk_chars: int, overlap_chars: int,
+                        prefix: bool = True, channel: str | None = None) -> list[dict]:
+    """Chunk personal archives by their source structure; preserve per-chunk dates."""
+    path = Path(file_path)
+    text = path.read_text(encoding="utf-8", errors="replace")
+    if not text.strip():
+        return []
+    if text.startswith("---\n"):
+        end = text.find("\n---\n", 4)
+        if end >= 0:
+            text = text[end + 5:]
+    rows = []
+    if mode == "email_thread":
+        matches = list(_EMAIL_HEADER.finditer(text))
+        messages = []
+        for i, match in enumerate(matches):
+            raw = text[match.end():matches[i + 1].start() if i + 1 < len(matches) else len(text)]
+            lines = []
+            for line in raw.splitlines():
+                if _QUOTE_START.match(line):
+                    break
+                if not line.startswith(">"):
+                    lines.append(line)
+            body = "\n".join(lines).strip()
+            messages.append((match, body, i + 1))
+        groups = []
+        for item in messages:
+            first = groups[-1][0] if groups else item
+            subject = str(frontmatter.get("subject") or "")
+            participants = frontmatter.get("participants") or []
+            proposed_lead = (f"Email | Subject: {subject} | From: {first[0].group(2)} | "
+                             f"Date: {first[0].group(1)} | Message {first[2]} of {len(messages)} | "
+                             f"Participants: {', '.join(map(str, participants))}") if prefix else ""
+            if (groups and len(item[1]) < 200 and
+                    all(len(x[1]) < 200 for x in groups[-1]) and
+                    sum(len(x[0].group(0)) + len(x[1]) + 2 for x in [*groups[-1], item])
+                    <= chunk_chars - len(proposed_lead) - (2 if proposed_lead else 0)):
+                groups[-1].append(item)
+            else:
+                groups.append([item])
+        for group in groups:
+            match, _, index = group[0]
+            sender = match.group(2)
+            address = re.search(r"<([^>]+)>", sender)
+            stamp = match.group(1)
+            subject = str(frontmatter.get("subject") or "")
+            participants = frontmatter.get("participants") or []
+            info = {"ts": datetime.fromisoformat(stamp).isoformat(), "sender": sender,
+                    "sender_addr": address.group(1) if address else "",
+                    "message_index": index, "message_count": len(messages),
+                    "conversation_id": frontmatter.get("thread_id"), "subject": subject,
+                    "channel": "email"}
+            lead = (f"Email | Subject: {subject} | From: {sender} | Date: {stamp} | "
+                    f"Message {index} of {len(messages)} | Participants: {', '.join(map(str, participants))}") if prefix else ""
+            content = "\n\n".join(f"{x[0].group(0)}\n{x[1]}" for x in group)
+            header = match.group(0) + "\n" if len(group) == 1 else ""
+            body = content[len(header):] if header else content
+            for piece in (_pieces(body, header, max(1, chunk_chars - len(lead) - (2 if lead else 0)),
+                                  overlap_chars, separator="\n\n") if header else [content]):
+                rows.append(_with_prefix(piece, lead, info, path))
+    elif mode == "chat_sessions":
+        matches = list(_SESSION_HEADER.finditer(text))
+        sessions = [(m, text[m.start():matches[i + 1].start() if i + 1 < len(matches) else len(text)].strip())
+                    for i, m in enumerate(matches)]
+        channel = channel or str(frontmatter.get("channel") or "chat")
+        contact = str(frontmatter.get("contact") or "")
+        key = str(frontmatter.get("contact_key") or "")
+        packs = []
+        current = []
+        for session in sessions:
+            candidate = "\n\n".join(x[1] for x in [*current, session])
+            first_date = current[0][0].group(1)[:10] if current else session[0].group(1)[:10]
+            lead_len = len(f"{channel.upper()} with {contact} | {first_date}") + 2 if prefix else 0
+            if current and len(candidate) > chunk_chars - lead_len:
+                packs.append(current)
+                current = []
+            current.append(session)
+        if current:
+            packs.append(current)
+        for pack in packs:
+            first, last = pack[0][0].group(1), pack[-1][0].group(1)
+            info = {"ts": datetime.fromisoformat(first).isoformat(),
+                    "ts_end": datetime.fromisoformat(last).isoformat(), "contact": contact,
+                    "contact_key": frontmatter.get("contact_key"), "channel": channel,
+                    "conversation_id": f"{channel}:{key}",
+                    "participants": [contact], "session_count": len(pack)}
+            lead = f"{channel.upper()} with {contact} | {first[:10]}" if prefix else ""
+            body = "\n\n".join(x[1] for x in pack)
+            header = pack[0][0].group(0) + "\n" if len(pack) == 1 else ""
+            if header and body.startswith(header):
+                body = body[len(header):]
+            for piece in _pieces(body, header, max(1, chunk_chars - len(lead) - (2 if lead else 0)),
+                                 overlap_chars, separator="\n"):
+                rows.append(_with_prefix(piece, lead, info, path))
+    elif mode == "transcript":
+        is_recording = bool(frontmatter.get("recording_start"))
+        stamp = str(frontmatter.get("recording_start") or frontmatter.get("date") or "")
+        name = str(frontmatter.get("name") if is_recording else frontmatter.get("title") or "")
+        lead = (f"Recording: {name} | {stamp[:10]}" if is_recording else
+                f"Chat: {name} | {stamp[:10]}") if prefix else ""
+        info = {"ts": stamp, "conversation_id": frontmatter.get("id") or path.stem,
+                "channel": "recording" if is_recording else "chat"}
+        matches = list(_ROLE_HEADER.finditer(text))
+        blocks = [text[m.start():matches[i + 1].start() if i + 1 < len(matches) else len(text)].strip()
+                  for i, m in enumerate(matches)]
+        if not blocks:
+            blocks = [text.strip()]
+        packed = []
+        for block in blocks:
+            if packed and len(packed[-1] + "\n\n" + block) <= chunk_chars - len(lead) - 2:
+                packed[-1] += "\n\n" + block
+            else:
+                packed.append(block)
+        for block in packed:
+            role_match = _ROLE_HEADER.match(block)
+            header = role_match.group(0) if role_match else ""
+            body = block[len(header):] if header else block
+            for piece in _pieces(body, header, max(1, chunk_chars - len(lead) - (2 if lead else 0)),
+                                 overlap_chars, separator="\n"):
+                rows.append(_with_prefix(piece, lead, info, path))
+    elif mode == "document":
+        title = str(frontmatter.get("title") or frontmatter.get("filename") or path.name)
+        original = Path(str(frontmatter.get("original_path") or path))
+        tail = "/".join(original.parts[-2:])
+        stamp = str(frontmatter.get("created_at") or frontmatter.get("date") or "")
+        lead = f"Document: {title} | Path: {tail} | Date: {stamp[:10]}" if prefix else ""
+        info = {"ts": stamp, "conversation_id": frontmatter.get("conversation_id") or frontmatter.get("id")}
+        limit = max(1, chunk_chars - len(lead) - (2 if lead else 0))
+        pieces = _chunk_by_sections(text, limit, overlap_chars) if len(text) > LARGE_FILE_THRESHOLD else _chunk_recursive(text, limit, overlap_chars)
+        if len(pieces) > 1 and len(pieces[0].strip()) < MIN_CHUNK_CHARS:
+            pieces[1] = pieces[0].rstrip() + "\n" + pieces[1].lstrip()
+            pieces = pieces[1:]
+        rows = [_with_prefix(piece, lead, info, path) for piece in pieces if piece.strip()]
+    else:
+        raise ValueError(f"unknown chunking mode: {mode}")
+    for i, row in enumerate(rows):
+        row["index"] = i
+    return rows
 
 
 def chunk_file(file_path: str | Path, chunk_size: int | None = None,
@@ -37,6 +226,8 @@ def chunk_file(file_path: str | Path, chunk_size: int | None = None,
         if overlap is None:
             overlap = cfg.get("chunk_overlap", CHUNK_OVERLAP)
 
+    if transcript and any(m.group(5) or m.group(6) for m in _ROLE_HEADER.finditer(text)):
+        return chunk_profiled_file(file_path, "transcript", {}, chunk_size, overlap, prefix=False)
     if transcript and _ROLE_HEADER.search(text):
         return _chunk_transcript(text, file_path, chunk_size, overlap)
 

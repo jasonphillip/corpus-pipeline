@@ -17,6 +17,7 @@ from typing import Any
 import httpx
 
 from ..config import MODEL_SCORING, OLLAMA_HOST, corpus_path
+from ..chunk_dates import chunk_date_sql
 
 
 MAX_EXPANSIONS = 12
@@ -42,14 +43,6 @@ _PROPER_NOUN_DENYLIST = frozenset(
         "today",
         "tomorrow",
     }
-)
-_TS_SQL = (
-    "COALESCE("
-    "NULLIF(json_extract({prefix}metadata_json, '$.ts'), ''), "
-    "NULLIF(json_extract({prefix}metadata_json, '$.started_at'), ''), "
-    "NULLIF(json_extract({prefix}metadata_json, '$.created_at'), ''), "
-    "NULLIF(json_extract({prefix}metadata_json, '$.content_date'), '')"
-    ")"
 )
 _EXPANSION_PROMPT = """/no_think Generate search variants for finding the earliest document about a topic.
 
@@ -132,7 +125,7 @@ def sql_chronological_scan(
             rows: list[sqlite3.Row] = []
             used_fts = False
             if has_fts:
-                timestamp = _TS_SQL.format(prefix="c.")
+                timestamp = chunk_date_sql("c.metadata_json")
                 phrase = '"' + " ".join(tokens) + '"'
                 try:
                     rows = connection.execute(
@@ -147,7 +140,7 @@ def sql_chronological_scan(
                 except sqlite3.OperationalError:
                     rows = []
             if not used_fts:
-                timestamp = _TS_SQL.format(prefix="")
+                timestamp = chunk_date_sql()
                 clauses = " AND ".join(["content LIKE ?"] * len(tokens))
                 rows = connection.execute(
                     f"SELECT source_path, chunk_index, content, metadata_json, "
@@ -182,7 +175,7 @@ def semantic_search(corpus: str, query: str) -> list[dict[str, Any]]:
     database = corpus_path(corpus) / "processed" / "chunks.db"
     connection = sqlite3.connect(f"file:{database}?mode=ro", uri=True)
     connection.row_factory = sqlite3.Row
-    timestamp = _TS_SQL.format(prefix="")
+    timestamp = chunk_date_sql()
     output: list[dict[str, Any]] = []
     try:
         for candidate in candidates:

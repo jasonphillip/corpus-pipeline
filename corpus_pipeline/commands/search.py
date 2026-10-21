@@ -19,6 +19,7 @@ import sys
 from pathlib import Path
 
 
+from ..chunk_dates import date_bounds
 from ..config import (
     corpus_path, SEARCH_TOP_K, SEARCH_RERANK, SEARCH_RERANK_MODEL,
     SEARCH_QUERY_EXPANSION, SEARCH_SMART_MIN_CHUNKS,
@@ -73,7 +74,8 @@ def _search_single_corpus(topic: str, queries: list[str], top_k: int,
                           captions: str = "include",
                           per_source: int | None = None,
                           metadata_filters: list[tuple[str, str]] | None = None,
-                          settings: dict | None = None) -> list[dict]:
+                          settings: dict | None = None,
+                          since: str | None = None, until: str | None = None) -> list[dict]:
     """Run hybrid search against one corpus for all query variants, dedup, tag.
 
     Returns results ordered best-first by the within-corpus hybrid score, with
@@ -122,7 +124,7 @@ def _search_single_corpus(topic: str, queries: list[str], top_k: int,
                 continue
             results = search_hybrid(conn, q, q_emb, top_k=candidate_k,
                                     per_source_limit=per_source or SEARCH_PER_SOURCE_LIMIT,
-                                    caption_mode=captions,
+                                    caption_mode=captions, since=since, until=until,
                                     **({"metadata_filters": metadata_filters} if metadata_filters else {}))
             for r in results:
                 rid = r["id"]
@@ -132,7 +134,8 @@ def _search_single_corpus(topic: str, queries: list[str], top_k: int,
             rows = search_rrf_variants(
                 conn, rrf_queries, top_k=candidate_k,
                 per_source_limit=per_source or SEARCH_PER_SOURCE_LIMIT,
-                caption_mode=captions, metadata_filters=metadata_filters)
+                caption_mode=captions, metadata_filters=metadata_filters,
+                since=since, until=until)
             merged = {row["id"]: row for row in rows}
     finally:
         conn.close()
@@ -166,7 +169,9 @@ def _search_single_corpus(topic: str, queries: list[str], top_k: int,
 
 def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
            captions: str = "include", per_source: int | None = None,
-           metadata_filters: list[tuple[str, str]] | None = None):
+           metadata_filters: list[tuple[str, str]] | None = None,
+           settings_overrides: dict | None = None,
+           since: str | None = None, until: str | None = None):
     """Run hybrid search across one or more corpora and print merged results.
 
     For a single-corpus invocation the behavior mirrors the original single-
@@ -184,6 +189,7 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
         if not _METADATA_KEY_RE.fullmatch(key):
             raise ValueError(f"invalid metadata key: {key!r}")
 
+    since, until = date_bounds(since, until)
     federated = len(corpora) > 1
 
     # Determine global smart-mode flags using the LARGEST corpus's chunk count.
@@ -224,6 +230,9 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
     manifests = {topic: _search_manifest(topic) for topic in available}
     settings_by_corpus = {topic: corpus_search_settings(topic, manifests[topic])
                           for topic in available}
+    if settings_overrides:
+        for settings in settings_by_corpus.values():
+            settings.update(settings_overrides)
     expansion_by_corpus = {}
     for topic, settings in settings_by_corpus.items():
         block = manifests[topic].get("search")
@@ -273,6 +282,7 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
                                                     captions=captions,
                                                     per_source=per_source,
                                                     settings=settings_by_corpus[t],
+                                                    since=since, until=until,
                                                     **({"metadata_filters": metadata_filters} if metadata_filters else {})))
     except httpx.TimeoutException:
         from ..config import QUERY_EMBED_TIMEOUT
@@ -370,6 +380,7 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
         print(f"**Scores:** hybrid={hybrid_score:.3f} vec={vec_s:.3f} bm25={bm25_s:.3f}")
         print(f"\n{display}\n")
         print(f"{'─'*60}\n")
+    return candidates
 
     print(f"Returned {len(candidates)} results")
 
@@ -438,6 +449,8 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Include caption sidecars (overrides SEARCH_EXCLUDE_CAPTIONS=1).")
     p.add_argument("--captions-only", dest="captions_mode", action="store_const", const="only",
                    help="Search caption sidecars only (figure content).")
+    p.add_argument("--since", help="Earliest chunk date (YYYY, YYYY-MM, or YYYY-MM-DD).")
+    p.add_argument("--until", help="Latest chunk date, inclusive.")
     p.add_argument("--per-source", dest="per_source", type=int, default=None,
                    help=f"Max results per source file. Default: {SEARCH_PER_SOURCE_LIMIT}.")
     p.add_argument("--meta", action="append", default=[], metavar="KEY=VALUE",
@@ -509,8 +522,14 @@ def main(argv=None):
     except ValueError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 2
-    search(corpora, query, top_k=args.top_k, captions=captions,
-           per_source=args.per_source, metadata_filters=metadata_filters)
+    try:
+        search(corpora, query, top_k=args.top_k, captions=captions,
+               per_source=args.per_source, metadata_filters=metadata_filters,
+               since=args.since, until=args.until)
+    except ValueError as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 2
+    return 0
 
 
 if __name__ == "__main__":

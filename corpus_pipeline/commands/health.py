@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from ..chunk_dates import chunk_date_sql
 from ..config import CORPUS_ROOT, HEALTH_ROOT, PRIMARY_CORPORA
 
 
@@ -166,12 +167,7 @@ def audit_corpus(corpus: str) -> dict[str, Any]:
             connection.execute("SELECT AVG(content_len) FROM chunks").fetchone()[0] or 0,
             1,
         )
-        timestamp = (
-            "COALESCE(NULLIF(json_extract(metadata_json, '$.ts'), ''), "
-            "NULLIF(json_extract(metadata_json, '$.started_at'), ''), "
-            "NULLIF(json_extract(metadata_json, '$.created_at'), ''), "
-            "NULLIF(json_extract(metadata_json, '$.content_date'), ''))"
-        )
+        timestamp = chunk_date_sql()
         date_row = connection.execute(
             f"SELECT MIN({timestamp}), MAX({timestamp}) FROM chunks"
         ).fetchone()
