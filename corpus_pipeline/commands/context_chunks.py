@@ -20,11 +20,12 @@ from ..corpus_db import connect, ensure_context_schema, get_vec_dim
 from ..embedder import embed_texts_parallel
 from ..manifest import read_manifest, write_manifest
 
-CONTEXT_PROMPT_VERSION = "context-v1"
-SYSTEM_PROMPT = ("You write one sentence of context for a text chunk so a search engine can find it. "
-                 "Name the people, the topic, the time and what happened, keep every proper noun, "
-                 "product, project and place name and every date that appears, plain English, "
-                 "no preamble, one sentence, under 40 words.")
+CONTEXT_PROMPT_VERSION = "context-v2-entities"
+SYSTEM_PROMPT = ("Return exactly two lines for this text chunk. Line 1 is one plain-English "
+                 "sentence under 40 words that situates the chunk: people, topic, time, and what "
+                 "happened. Line 2 is Entities: followed by comma-separated people, organisations, "
+                 "places, products, projects, and dates mentioned in the chunk. Use Entities: none "
+                 "when there are none. Preserve proper names and dates. No preamble.")
 LLM_URL = os.environ.get("CONTEXT_LLM_URL", "http://127.0.0.1:11434/v1").rstrip("/")
 LLM_MODEL = os.environ.get("CONTEXT_LLM_MODEL", "qwen3:14b")
 
@@ -64,7 +65,7 @@ def generate_context(prompt: str) -> str:
         f"{LLM_URL}/chat/completions",
         json={"model": LLM_MODEL, "messages": [{"role": "system", "content": SYSTEM_PROMPT},
                                              {"role": "user", "content": prompt}],
-              "temperature": 0.2, "max_tokens": 80},
+              "temperature": 0.2, "max_tokens": 160},
         headers=headers,
         timeout=90.0)
     response.raise_for_status()
@@ -73,14 +74,23 @@ def generate_context(prompt: str) -> str:
 
 def _clean_output(value: str) -> str:
     value = re.sub(r"<think>.*?</think>", "", value, flags=re.S | re.I).strip()
-    return " ".join(value.strip(' \t\r\n"“”\'').split())
+    lines = [" ".join(line.strip(' \t\r\n"“”\'').split()) for line in value.splitlines()]
+    lines = [line for line in lines if line]
+    if not lines:
+        return ""
+    first = lines[0]
+    entity_line = next((line for line in lines[1:] if line.casefold().startswith("entities:")),
+                       "Entities: none")
+    entities = entity_line.split(":", 1)[1].strip() or "none"
+    second = f"Entities: {entities}"[:499]
+    return f"{first[:500 - len(second) - 1]}\n{second}"
 
 
 def _write_one(prompt: str) -> str | None:
     for _ in range(2):
         try:
             result = _clean_output(generate_context(prompt))
-            if result and len(result) <= 400:
+            if result:
                 return result
         except (httpx.HTTPError, KeyError, ValueError, TypeError, IndexError):
             pass

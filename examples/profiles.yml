@@ -1,8 +1,8 @@
 my-docs:
   chunking:
     mode: document
-    chunk_chars: 6000
-    overlap_chars: 600
+    chunk_chars: 2500
+    overlap_chars: 250
     prefix: true
   search:
     fusion: rrf

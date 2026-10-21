@@ -54,7 +54,7 @@ def parse_settings(items: list[str]) -> dict:
         key, value = item.split("=", 1)
         if key == "fusion" and value in ("linear", "rrf"):
             result[key] = value
-        elif key == "expansion" and value.lower() in ("true", "false", "1", "0", "on", "off"):
+        elif key in ("expansion", "rerank") and value.lower() in ("true", "false", "1", "0", "on", "off"):
             result[key] = value.lower() in ("true", "1", "on")
         elif key == "conversation_cap" and value.isdigit():
             result[key] = int(value)
@@ -140,7 +140,7 @@ def evaluate_questions(questions: list[dict], search_fn=None,
     return {"questions": rows, "metrics": metrics}
 
 
-ENV_KEYS = ("CORPUS_SEARCH_RERANK", "CORPUS_FTS_MATCH", "SEARCH_FTS_PHRASE",
+ENV_KEYS = ("CORPUS_SEARCH_RERANK", "SEARCH_RERANK", "CORPUS_FTS_MATCH", "SEARCH_FTS_PHRASE",
             "SEARCH_PHRASE_BONUS", "SEARCH_PHRASE_RRF_WEIGHT", "SEARCH_CONTEXT_FTS",
             "CORPUS_RECENCY_WEIGHT", "CORPUS_QUERY_EXPANSION",
             "CORPUS_EXCLUDE_CAPTIONS", "CORPUS_CAPTION_PREFIX", "CORPUS_RERANK_DOC_CHARS",

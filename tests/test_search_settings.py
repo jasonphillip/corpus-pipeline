@@ -18,7 +18,7 @@ def test_manifest_settings_and_environment_precedence(tmp_path, monkeypatch):
         (tmp_path / "manifest.json").read_text()))
     settings = search_settings.corpus_search_settings("sample")
     assert settings == {"fusion": "rrf", "expansion": False,
-                        "conversation_cap": 2, "display": "passage"}
+                        "conversation_cap": 2, "display": "passage", "rerank": None}
     monkeypatch.setenv("CORPUS_SEARCH_FUSION", "linear")
     assert search_settings.corpus_search_settings("sample")["fusion"] == search_settings.SEARCH_FUSION
 

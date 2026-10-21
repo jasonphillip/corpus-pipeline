@@ -216,6 +216,7 @@ ranks dated hits; `--since` and `--until`
 include the full year, month, or day and exclude undated chunks.
 `CORPUS_RERANK_DOC_CHARS=4000` selects the best query window, and
 `CORPUS_RERANK_BATCH_TOKENS=4096` bounds the reranker payload.
+Set `search.rerank: true` in a manifest to request reranking when any searched corpus opts in; the size threshold still applies. Explicit `SEARCH_RERANK=1|0` wins over manifests, and the existing `CORPUS_SEARCH_RERANK` environment variable remains supported. `corpus eval run --search-arg rerank=true|false` overrides one evaluation run.
 
 ```bash
 export CORPUS_EMBED_URL=http://127.0.0.1:8000/v1/embeddings
@@ -231,6 +232,7 @@ Set `chunking.mode` to `generic`, `transcript`, `email_thread`,
 Structured chunks carry a prefix and `prefix_len`, plus per-chunk `ts` and
 `conversation_id` when the source provides them; the YAML or JSON mapping
 contains corpus names, with no names built into the script.
+Transcript mode keeps each `## Prompt` with its `## Response` when it fits, records `pair_index`, and repeats a `Prompt:` header on oversized pieces. Document mode defaults to 2500 characters with 250 overlap, splits at H1-H3 outside fenced code, and stores `heading_path` beside a `Section:` prefix. LongMemEval motivates keeping rounds together (https://arxiv.org/abs/2410.10813); Snowflake motivates section-aware splits (https://www.snowflake.com/en/blog/engineering/impact-retrieval-chunking-finance-rag/).
 
 ```bash
 python3 scripts/apply_corpus_profiles.py apply --mapping examples/profiles.yml --dry-run
@@ -239,6 +241,8 @@ corpus shadow my-docs candidate --mapping examples/profiles.yml
 ```
 
 ### Retrieval evaluation
+
+The context writer now stores a situating sentence and a newline-separated `Entities:` line, capped together at 500 characters. Its prompt version is `context-v2-entities`; the LongMemEval paper above discusses fact-augmented retrieval keys, but this repo has no measured gain for this change.
 
 `corpus eval build` generates synthetic whole, late, phrase, and temporal
 questions through `EVAL_LLM_URL=http://127.0.0.1:11434/v1` and

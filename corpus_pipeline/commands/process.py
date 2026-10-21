@@ -185,7 +185,7 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
     if mode != "generic" and not (transcript and "mode" not in chunking):
         default_size, default_overlap = {
             "email_thread": (3000, 300), "chat_sessions": (1500, 150),
-            "transcript": (3000, 300), "document": (6000, 600),
+            "transcript": (3000, 300), "document": (2500, 250),
         }[mode]
         chunk_size = chunking.get("chunk_chars", default_size)
         chunk_overlap = chunking.get("overlap_chars", default_overlap)

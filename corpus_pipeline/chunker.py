@@ -23,6 +23,8 @@ _ROLE_HEADER = re.compile(
 _EMAIL_HEADER = re.compile(r"^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) — (.+)$", re.M)
 _SESSION_HEADER = re.compile(r"^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) session$", re.M)
 _QUOTE_START = re.compile(r"^(?:On .{5,120} wrote:|-----Original Message-----)")
+_DOCUMENT_HEADING = re.compile(r"^(#{1,3})[ \t]+(.+?)[ \t]*$")
+_FENCE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
 
 
 def _with_prefix(body: str, prefix: str, metadata: dict, path: Path) -> dict:
@@ -64,6 +66,94 @@ def _pieces(body: str, header: str, limit: int, overlap: int,
     if current.strip():
         out.append(header + current)
     return out
+
+
+def _document_sections(text: str) -> list[tuple[str, list[str]]]:
+    """Split at H1-H3 outside fenced code, retaining the active heading path."""
+    sections = []
+    headings = ["", "", ""]
+    active_path = []
+    start = offset = 0
+    fence = ""
+    for line in text.splitlines(keepends=True):
+        marker = _FENCE.match(line)
+        if marker:
+            run = marker.group(1)
+            if not fence:
+                fence = run
+            elif run[0] == fence[0] and len(run) >= len(fence):
+                fence = ""
+        elif not fence and (match := _DOCUMENT_HEADING.match(line.rstrip("\r\n"))):
+            if offset > start:
+                sections.append((text[start:offset], active_path))
+            level = len(match.group(1))
+            headings[level - 1] = match.group(2).strip()
+            headings[level:] = [""] * (3 - level)
+            active_path = [heading for heading in headings if heading]
+            start = offset
+        offset += len(line)
+    if start < len(text):
+        sections.append((text[start:], active_path))
+    return sections
+
+
+def _fence_spans(text: str) -> list[tuple[int, int]]:
+    spans = []
+    opening = None
+    fence = ""
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        marker = _FENCE.match(line)
+        if marker:
+            run = marker.group(1)
+            if not fence:
+                opening, fence = offset, run
+            elif run[0] == fence[0] and len(run) >= len(fence):
+                spans.append((opening, offset + len(line)))
+                opening, fence = None, ""
+        offset += len(line)
+    if opening is not None:
+        spans.append((opening, len(text)))
+    return spans
+
+
+def _document_pieces(text: str, limit: int, overlap: int) -> list[str]:
+    """Prefer paragraph and sentence ends, moving nearby code splits to fence edges."""
+    if len(text) <= limit:
+        return [text] if text.strip() else []
+    spans = _fence_spans(text)
+    out = []
+    start = 0
+    while start < len(text):
+        upper = min(len(text), start + limit)
+        if upper == len(text):
+            out.append(text[start:])
+            break
+        floor = start + max(1, limit // 2)
+        blank = [m.end() for m in re.finditer(r"\n[ \t]*\n", text[start:upper])]
+        sentences = [m.end() for m in re.finditer(r"[.!?][ \t]+", text[start:upper])]
+        lines = [m.end() for m in re.finditer(r"\n", text[start:upper])]
+        candidates = [start + positions[-1] for positions in (blank, sentences, lines)
+                      if positions and start + positions[-1] >= floor]
+        end = candidates[0] if candidates else upper
+        for opening, closing in spans:
+            if opening < end < closing:
+                edges = [edge for edge in (opening, closing)
+                         if start < edge <= upper and abs(edge - end) <= 400]
+                if edges:
+                    end = min(edges, key=lambda edge: abs(edge - end))
+                break
+        out.append(text[start:end])
+        next_start = max(start + 1, end - overlap)
+        for opening, closing in spans:
+            if opening < next_start < closing:
+                edges = [edge for edge in (opening, closing)
+                         if start < edge <= end and abs(edge - next_start) <= 400]
+                if edges:
+                    next_start = min(edges, key=lambda edge: abs(edge - next_start))
+                break
+        start = next_start
+    return [piece for piece in out if piece.strip()]
 
 
 def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
@@ -172,6 +262,29 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
         matches = list(_ROLE_HEADER.finditer(text))
         blocks = [text[m.start():matches[i + 1].start() if i + 1 < len(matches) else len(text)].strip()
                   for i, m in enumerate(matches)]
+        if any(m.group(5) == "Prompt" for m in matches):
+            pair_index = 0
+            for i, match in enumerate(matches):
+                if match.group(5) != "Prompt":
+                    continue
+                pair_index += 1
+                prompt = blocks[i][len(match.group(0)):].strip()
+                response = (blocks[i + 1] if i + 1 < len(matches) and
+                            matches[i + 1].group(5) == "Response" else "")
+                pair = f"## Prompt\n{prompt}" + (f"\n\n{response}" if response else "")
+                pair_info = {**info, "pair_index": pair_index}
+                available = max(1, chunk_chars - len(lead) - (2 if lead else 0))
+                if len(pair) <= available:
+                    rows.append(_with_prefix(pair, lead, pair_info, path))
+                else:
+                    subject = " ".join(prompt.split())[:120]
+                    header = f"Prompt: {subject}\n"
+                    for piece in _pieces(pair, header, available, overlap_chars,
+                                         separator="\n"):
+                        rows.append(_with_prefix(piece, lead, pair_info, path))
+            for i, row in enumerate(rows):
+                row["index"] = i
+            return rows
         if not blocks:
             blocks = [text.strip()]
         packed = []
@@ -192,14 +305,16 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
         original = Path(str(frontmatter.get("original_path") or path))
         tail = "/".join(original.parts[-2:])
         stamp = str(frontmatter.get("created_at") or frontmatter.get("date") or "")
-        lead = f"Document: {title} | Path: {tail} | Date: {stamp[:10]}" if prefix else ""
-        info = {"ts": stamp, "conversation_id": frontmatter.get("conversation_id") or frontmatter.get("id")}
-        limit = max(1, chunk_chars - len(lead) - (2 if lead else 0))
-        pieces = _chunk_by_sections(text, limit, overlap_chars) if len(text) > LARGE_FILE_THRESHOLD else _chunk_recursive(text, limit, overlap_chars)
-        if len(pieces) > 1 and len(pieces[0].strip()) < MIN_CHUNK_CHARS:
-            pieces[1] = pieces[0].rstrip() + "\n" + pieces[1].lstrip()
-            pieces = pieces[1:]
-        rows = [_with_prefix(piece, lead, info, path) for piece in pieces if piece.strip()]
+        base_lead = f"Document: {title} | Path: {tail} | Date: {stamp[:10]}" if prefix else ""
+        for section, heading_path in _document_sections(text):
+            lead = base_lead
+            if prefix and heading_path:
+                lead += f" | Section: {' > '.join(heading_path)}"
+            info = {"ts": stamp, "heading_path": heading_path,
+                    "conversation_id": frontmatter.get("conversation_id") or frontmatter.get("id")}
+            limit = max(1, chunk_chars - len(lead) - (2 if lead else 0))
+            for piece in _document_pieces(section, limit, overlap_chars):
+                rows.append(_with_prefix(piece, lead, info, path))
     else:
         raise ValueError(f"unknown chunking mode: {mode}")
     for i, row in enumerate(rows):

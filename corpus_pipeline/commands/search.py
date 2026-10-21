@@ -14,6 +14,7 @@ the corpora that returned it. Reranker then re-scores the federated top-K.
 import argparse
 import httpx
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -226,13 +227,21 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
                     print(f"  Did you mean: {', '.join(close)}?", file=sys.stderr)
         sys.exit(3)
 
-    use_rerank = SEARCH_RERANK and max_chunks >= SEARCH_SMART_MIN_CHUNKS
     manifests = {topic: _search_manifest(topic) for topic in available}
     settings_by_corpus = {topic: corpus_search_settings(topic, manifests[topic])
                           for topic in available}
     if settings_overrides:
         for settings in settings_by_corpus.values():
             settings.update(settings_overrides)
+    rerank_requested = any(settings["rerank"] is True for settings in settings_by_corpus.values())
+    if "CORPUS_SEARCH_RERANK" in os.environ or "SEARCH_RERANK" in os.environ:
+        # SEARCH_RERANK is the explicit private-port knob. It takes precedence
+        # over the existing CORPUS_SEARCH_RERANK deployment setting.
+        raw = os.environ.get("SEARCH_RERANK", os.environ.get("CORPUS_SEARCH_RERANK", ""))
+        rerank_requested = raw.strip().lower() in {"1", "true", "yes", "on"}
+    if settings_overrides and "rerank" in settings_overrides:
+        rerank_requested = settings_overrides["rerank"]
+    use_rerank = rerank_requested and max_chunks >= SEARCH_SMART_MIN_CHUNKS
     expansion_by_corpus = {}
     for topic, settings in settings_by_corpus.items():
         block = manifests[topic].get("search")
@@ -251,7 +260,7 @@ def search(corpora: list[str], query: str, top_k: int = SEARCH_TOP_K,
     # Always printed: the effective mode must be visible even when a per-query
     # flag overrides the env default (or fails to — see the REMAINDER bug).
     print(f"Captions: {captions}")
-    if max_chunks < SEARCH_SMART_MIN_CHUNKS and (SEARCH_RERANK or SEARCH_QUERY_EXPANSION):
+    if max_chunks < SEARCH_SMART_MIN_CHUNKS and (rerank_requested or SEARCH_QUERY_EXPANSION):
         print(f"(Smart mode: rerank/expansion skipped — largest corpus below {SEARCH_SMART_MIN_CHUNKS} chunks)")
 
     # Query expansion — one expansion call, applied uniformly to every corpus.
