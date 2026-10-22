@@ -102,7 +102,7 @@ def _research(argv: list[str]) -> int:
 
 def _process(argv: list[str]) -> int:
     from .commands.context import build_context
-    from .commands.process import process_topic
+    from .commands.process import PARITY_EXIT_CODE, ParityMismatch, check_parity, process_topic
     from .config import corpus_path
     from .status import update_corpus_status
 
@@ -111,7 +111,25 @@ def _process(argv: list[str]) -> int:
     parser.add_argument("mode", nargs="?", choices=["context", "rag", "both"], default="both")
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--only", type=Path, metavar="PATHS_FILE")
+    parser.add_argument("--check-parity", action="store_true")
     args = parser.parse_args(argv)
+    if args.check_parity:
+        if args.force or args.only or args.mode != "both":
+            parser.error("--check-parity cannot be combined with a mode, --force, or --only")
+        from .corpus_db import connect_existing
+
+        try:
+            connection = connect_existing(args.topic)
+            try:
+                check_parity(connection)
+            finally:
+                connection.close()
+        except ParityMismatch:
+            return PARITY_EXIT_CODE
+        except OSError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+        return 0
     if args.only and args.mode == "context":
         parser.error("--only requires rag or both mode")
     if args.mode in {"context", "both"} and args.only is None:
@@ -119,6 +137,8 @@ def _process(argv: list[str]) -> int:
     if args.mode in {"rag", "both"}:
         try:
             process_topic(args.topic, force=args.force, only=args.only)
+        except ParityMismatch:
+            return PARITY_EXIT_CODE
         except (OSError, ValueError) as exc:
             print(f"Error: {exc}", file=sys.stderr)
             return 2

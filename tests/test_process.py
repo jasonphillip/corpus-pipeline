@@ -5,7 +5,7 @@ import httpx
 import pytest
 
 from corpus_pipeline.commands import process
-from corpus_pipeline import corpus_db, embedder, manifest
+from corpus_pipeline import cli, corpus_db, embedder, manifest
 from corpus_pipeline.commands.process import _coerce_yaml, _file_hash, parse_frontmatter
 
 
@@ -238,6 +238,51 @@ def test_repeated_chunks_deduplicate_within_one_source(tmp_path, monkeypatch):
     process.process_topic("topic")
     assert _index_state()[0] == [("a.md", "same")]
     assert _index_state()[2] == (1, 1, 1)
+
+
+def test_check_parity_passes_for_consistent_database(tmp_path, monkeypatch, capsys):
+    _setup_topic(tmp_path, monkeypatch, names=("a.md",))
+    process.process_topic("topic")
+    capsys.readouterr()
+    assert cli.main(["process", "topic", "--check-parity"]) == 0
+    assert "parity chunks=1 fts=1 vec=1" in capsys.readouterr().out
+
+
+def test_check_parity_fails_for_orphan_fts_row(tmp_path, monkeypatch, capsys):
+    _setup_topic(tmp_path, monkeypatch, names=("a.md",))
+    process.process_topic("topic")
+    conn = corpus_db.connect("topic")
+    try:
+        conn.execute("INSERT INTO chunks_fts (content, source_path, content_len, chunk_id) "
+                     "VALUES ('orphan', 'orphan.md', 6, '999')")
+        conn.commit()
+    finally:
+        conn.close()
+    capsys.readouterr()
+    assert cli.main(["process", "topic", "--check-parity"]) == process.PARITY_EXIT_CODE
+    output = capsys.readouterr()
+    assert "parity chunks=1 fts=2 vec=1" in output.out
+    assert "PARITY MISMATCH chunks=1 fts=2 vec=1" in output.err
+    with pytest.raises(process.ParityMismatch):
+        process.process_topic("topic")
+
+
+def test_vec_short_passes_when_run_reports_missing_embeddings(tmp_path, monkeypatch, capsys):
+    files = _setup_topic(tmp_path, monkeypatch, names=("a.md",))
+    process.process_topic("topic")
+    conn = corpus_db.connect("topic")
+    try:
+        conn.execute("DELETE FROM chunks_vec")
+        conn.commit()
+    finally:
+        conn.close()
+    files["a.md"].write_text("changed")
+    monkeypatch.setattr(process, "_embed_with_fallback", lambda texts: ([None], 1))
+    capsys.readouterr()
+    process.process_topic("topic")
+    output = capsys.readouterr()
+    assert "parity chunks=1 fts=1 vec=0" in output.out
+    assert "PARITY MISMATCH" not in output.err
 
 
 def test_deleting_raw_file_does_not_sync_index(tmp_path, monkeypatch):

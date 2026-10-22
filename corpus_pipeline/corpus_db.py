@@ -63,6 +63,27 @@ def connect(topic: str) -> sqlite3.Connection:
     return conn
 
 
+def connect_existing(topic: str) -> sqlite3.Connection:
+    """Open an existing corpus database without creating or changing it."""
+    db_path = corpus_path(topic) / "processed" / "chunks.db"
+    if not db_path.is_file():
+        raise FileNotFoundError(f"corpus database does not exist: {db_path}")
+    conn = sqlite3.connect(f"{db_path.as_uri()}?mode=ro", uri=True)
+    conn.row_factory = sqlite3.Row
+    conn.enable_load_extension(True)
+    try:
+        conn.load_extension(_find_vec_extension())
+    finally:
+        conn.enable_load_extension(False)
+    return conn
+
+
+def get_parity_counts(conn: sqlite3.Connection) -> tuple[int, int, int]:
+    """Count stored chunks and their FTS and vector rows."""
+    return tuple(conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+                 for table in ("chunks", "chunks_fts", "chunks_vec"))
+
+
 def init_schema(conn: sqlite3.Connection, dims: int):
     """Create tables if they don't exist."""
     conn.executescript(f"""

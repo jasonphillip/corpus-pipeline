@@ -91,7 +91,8 @@ def _embed_with_fallback(texts: list[str]) -> tuple[list[bytes | None], int]:
 from ..config import corpus_path, get_embedding_config
 from ..content_filter import clean_chunk, information_density
 from ..corpus_db import (
-    connect, init_schema, insert_chunk, delete_by_source, get_stats,
+    connect, connect_existing, init_schema, insert_chunk, delete_by_source,
+    get_stats, get_parity_counts,
     get_source_hash, upsert_source, content_hash,
 )
 from ..chunker import chunk_file, chunk_profiled_file
@@ -99,6 +100,27 @@ from ..embedder import get_dims, get_label
 from ..hygiene import load_hygiene
 from ..labels import apply_imported_labels, load_registry
 from ..manifest import read_manifest, write_manifest, set_embedding_provenance
+
+
+PARITY_EXIT_CODE = 6
+
+
+class ParityMismatch(Exception):
+    """The persisted chunk index has mismatched table counts."""
+
+
+def report_parity(counts: tuple[int, int, int],
+                  allow_missing_embeddings: bool = False) -> None:
+    chunks, fts, vec = counts
+    counts = f"chunks={chunks} fts={fts} vec={vec}"
+    print(f"parity {counts}")
+    if fts != chunks or vec > chunks or (not allow_missing_embeddings and vec < chunks):
+        print(f"PARITY MISMATCH {counts}", file=sys.stderr)
+        raise ParityMismatch(counts)
+
+
+def check_parity(conn) -> None:
+    report_parity(get_parity_counts(conn))
 
 
 def parse_frontmatter(path: Path) -> dict[str, Any]:
@@ -243,6 +265,13 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
 
     if not files:
         print("No files found to process.")
+        db_path = corpus_path(topic) / "processed" / "chunks.db"
+        if db_path.is_file():
+            conn = connect_existing(topic)
+            try:
+                check_parity(conn)
+            finally:
+                conn.close()
         return
 
     # Initialize database
@@ -428,6 +457,7 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
     # Get final stats
     conn = connect(topic)
     stats = get_stats(conn)
+    parity_counts = get_parity_counts(conn)
     conn.close()
 
     # Write processing log
@@ -468,6 +498,7 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
     print(f"  Total in DB: {stats['total_chunks']}")
     print(f"  Time: {elapsed:.1f}s")
     print(f"  DB: {corpus_path(topic) / 'processed' / 'chunks.db'}")
+    report_parity(parity_counts, allow_missing_embeddings=total_dropped_chunks > 0)
 
 
 def main():
@@ -483,9 +514,22 @@ def main():
                         help="Re-process every file even if its hash is unchanged")
     parser.add_argument("--only", type=Path, metavar="PATHS_FILE",
                         help="Reprocess only listed paths relative to raw/")
+    parser.add_argument("--check-parity", action="store_true",
+                        help="Check an existing database without processing files")
     args = parser.parse_args()
     try:
-        process_topic(args.topic, force=args.force, only=args.only)
+        if args.check_parity:
+            if args.force or args.only:
+                parser.error("--check-parity cannot be combined with --force or --only")
+            conn = connect_existing(args.topic)
+            try:
+                check_parity(conn)
+            finally:
+                conn.close()
+        else:
+            process_topic(args.topic, force=args.force, only=args.only)
+    except ParityMismatch as exc:
+        raise SystemExit(PARITY_EXIT_CODE) from exc
     except (OSError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         raise SystemExit(2) from exc

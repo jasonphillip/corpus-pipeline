@@ -195,6 +195,7 @@ cross-encoder takes precedence over Ollama reranking.
 
 ## Retrieval upgrades (2026-10)
 
+- Processing prints `parity chunks=N fts=N vec=N` after commit; `corpus process <topic> --check-parity` checks an existing index, and a mismatch exits 6 (a short vector table is allowed when embeddings were dropped during processing).
 - Email-thread cleaning now keeps dense prose and Markdown anchor text, falls back for unparsed files, and can be checked without indexing with `python scripts/chunk_coverage.py <corpus> --mode email_thread`; eval build writes the parent corpus name for shadow corpora.
 - Rerank window default 2000 characters (was 4000): same MRR within the confidence interval on two 120-question sets, 16-35 % lower median search latency; the candidate pool stays 2 x top_k because a pool of 30 cost about 0.02 source MRR.
 
