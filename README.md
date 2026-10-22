@@ -196,6 +196,7 @@ cross-encoder takes precedence over Ollama reranking.
 ## Retrieval upgrades (2026-10)
 
 - Email-thread cleaning now keeps dense prose and Markdown anchor text, falls back for unparsed files, and can be checked without indexing with `python scripts/chunk_coverage.py <corpus> --mode email_thread`; eval build writes the parent corpus name for shadow corpora.
+- Rerank window default 2000 characters (was 4000): same MRR within the confidence interval on two 120-question sets, 16-35 % lower median search latency; the candidate pool stays 2 x top_k because a pool of 30 cost about 0.02 source MRR.
 
 ### Canonical dates
 
@@ -216,7 +217,7 @@ Search adds a phrase channel for the whole query and each quoted segment;
 `CORPUS_SEARCH_FUSION=rrf` selects RRF, and `CORPUS_RECENCY_WEIGHT=0.15`
 ranks dated hits; `--since` and `--until`
 include the full year, month, or day and exclude undated chunks.
-`CORPUS_RERANK_DOC_CHARS=4000` selects the best query window, and
+`CORPUS_RERANK_DOC_CHARS=2000` selects the best query window, and
 `CORPUS_RERANK_BATCH_TOKENS=4096` bounds the reranker payload.
 Set `search.rerank: true` in a manifest to request reranking when any searched corpus opts in; the size threshold still applies. Explicit `SEARCH_RERANK=1|0` wins over manifests, and the existing `CORPUS_SEARCH_RERANK` environment variable remains supported. `corpus eval run --search-arg rerank=true|false` overrides one evaluation run.
 

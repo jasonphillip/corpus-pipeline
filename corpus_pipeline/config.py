@@ -117,8 +117,14 @@ RERANK_QUERY_MAX_BYTES = 1024
 
 
 def rerank_limits() -> tuple[int, int]:
-    """Return positive document-window and reranker batch limits."""
-    window = int(os.environ.get("CORPUS_RERANK_DOC_CHARS", "4000"))
+    """Return positive document-window and reranker batch limits.
+
+    A 2026-10-22 Qwen3-Reranker-4B evaluation on two 120-question sets found
+    2000 characters within the 95% MRR confidence interval with 16-35% lower
+    median search latency; a pool of 30 lost about 0.02 source MRR, so the
+    candidate pool stays 2 x top_k.
+    """
+    window = int(os.environ.get("CORPUS_RERANK_DOC_CHARS", "2000"))
     batch = int(os.environ.get("CORPUS_RERANK_BATCH_TOKENS", "4096"))
     if window < 1 or batch < 1:
         raise ValueError("rerank limits must be positive")

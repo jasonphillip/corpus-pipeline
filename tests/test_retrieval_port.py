@@ -13,6 +13,7 @@ from corpus_pipeline.commands import first_mention, health
 from corpus_pipeline.commands import process
 from corpus_pipeline.commands.profiles import load_profiles, apply_profiles
 from corpus_pipeline.commands.shadow import create_shadow
+from corpus_pipeline.config import rerank_limits
 from corpus_pipeline.corpus_db import (connect, init_schema, insert_chunk, ensure_context_schema,
                                        search_hybrid, search_rrf_variants, search_vector,
                                        search_bm25, search_phrase)
@@ -91,6 +92,18 @@ def test_best_rerank_window_selects_late_evidence():
     selected = best_rerank_window("amber relay confirms receipt", content, 500)
     assert selected.startswith("# Fictional report")
     assert "amber relay confirms receipt" in selected
+
+
+def test_rerank_limits_default(monkeypatch):
+    monkeypatch.delenv("CORPUS_RERANK_DOC_CHARS", raising=False)
+    monkeypatch.delenv("CORPUS_RERANK_BATCH_TOKENS", raising=False)
+    assert rerank_limits() == (2000, 4096)
+
+
+def test_rerank_limits_environment_override(monkeypatch):
+    monkeypatch.setenv("CORPUS_RERANK_DOC_CHARS", "2500")
+    monkeypatch.setenv("CORPUS_RERANK_BATCH_TOKENS", "8192")
+    assert rerank_limits() == (2500, 8192)
 
 
 def test_cross_encoder_receives_late_window(monkeypatch):
