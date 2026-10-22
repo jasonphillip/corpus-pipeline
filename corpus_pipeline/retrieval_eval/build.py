@@ -15,6 +15,7 @@ from urllib.request import Request, urlopen
 from ..config import corpus_path
 from ..corpus_db import _FTS_COMMON_WORDS
 from ..chunk_dates import chunk_ts
+from .run import parent_mapping
 
 WORD = re.compile(r"\b[\w]+(?:['’\-][\w]+)*\b", re.UNICODE)
 THINK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
@@ -82,7 +83,9 @@ def _phrase(text: str, rng: random.Random) -> tuple[str, str]:
     return rng.choice(choices), sentence
 
 
-def _regressions(path: Path, corpus: str, rows_by_id: dict[int, dict]) -> list[dict]:
+def _regressions(path: Path, corpus: str, rows_by_id: dict[int, dict],
+                 question_corpus: str | None = None) -> list[dict]:
+    question_corpus = question_corpus or corpus
     records = []
     for line_no, line in enumerate(path.read_text().splitlines(), 1):
         line = line.strip()
@@ -104,11 +107,11 @@ def _regressions(path: Path, corpus: str, rows_by_id: dict[int, dict]) -> list[d
             target_corpus = corpus
         if not question:
             raise ValueError(f"regression line {line_no}: empty question")
-        row = rows_by_id.get(chunk_id) if target_corpus == corpus else None
+        row = rows_by_id.get(chunk_id) if target_corpus in (corpus, question_corpus) else None
         if row is None:
             raise ValueError(f"regression line {line_no}: chunk {chunk_id} is not in {corpus}")
-        records.append({"qid": _qid(target_corpus, chunk_id, "regression", question),
-                        "corpus": target_corpus, "chunk_id": chunk_id,
+        records.append({"qid": _qid(question_corpus, chunk_id, "regression", question),
+                        "corpus": question_corpus, "chunk_id": chunk_id,
                         "source_path": row["source_path"] if row else None,
                         "chunk_index": row["chunk_index"] if row else None,
                         "kind": "regression", "question": question,
@@ -127,6 +130,7 @@ def build_questions(corpus: str, n: int = 120, seed: int = 7,
                     append_regression: Path | None = None) -> tuple[list[dict], list[str]]:
     if n <= 0:
         raise ValueError("--n must be positive")
+    question_corpus = parent_mapping([corpus])[corpus]
     db_path = db_path or corpus_path(corpus) / "processed" / "chunks.db"
     llm_client = llm_client or llm_question
     rng = random.Random(seed)
@@ -197,7 +201,7 @@ def build_questions(corpus: str, n: int = 120, seed: int = 7,
     for kind, row in assignments:
         while True:
             try:
-                record = _build_record(corpus, kind, row, rng, llm_client, notes)
+                record = _build_record(question_corpus, kind, row, rng, llm_client, notes)
                 records.append(record)
                 break
             except Exception as error:
@@ -221,7 +225,7 @@ def build_questions(corpus: str, n: int = 120, seed: int = 7,
                 row["chunk_len"] = len(row["content"])
     notes.append(f"skipped chunks: {skipped}")
     if append_regression:
-        regressions = _regressions(append_regression, corpus, by_id)
+        regressions = _regressions(append_regression, corpus, by_id, question_corpus)
         with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as regression_conn:
             for record in regressions:
                 content = regression_conn.execute("SELECT content FROM chunks WHERE id = ?",

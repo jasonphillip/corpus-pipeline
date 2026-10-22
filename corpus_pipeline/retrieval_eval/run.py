@@ -128,6 +128,7 @@ def evaluate_questions(questions: list[dict], search_fn=None,
     for question in questions:
         selected = corpora or [question["corpus"]]
         parents = parent_mapping(selected, aliases)
+        target_corpus = parent_mapping([question["corpus"]], aliases)[question["corpus"]]
         started = time.monotonic()
         try:
             results = (search_fn(selected, question["question"], top_k, settings_overrides,
@@ -141,18 +142,18 @@ def evaluate_questions(questions: list[dict], search_fn=None,
                  "score": r.get("rerank_score", r.get("rrf_score", r.get("score")))}
                 for r in (results or [])[:top_k]]
         strict_defined = (any(_strict_target_exists(question, name) for name in selected
-                              if parents[name] == question["corpus"])
+                              if parents[name] == target_corpus)
                           if search_fn is real_search else True)
         strict = next((i for i, hit in enumerate(hits, 1)
-                       if parents.get(hit["corpus"]) == question["corpus"]
+                       if parents.get(hit["corpus"]) == target_corpus
                        and str(hit["chunk_id"]) == str(question["chunk_id"])), None) if strict_defined else None
         source = next((i for i, hit in enumerate(hits, 1)
-                       if parents.get(hit["corpus"]) == question["corpus"]
+                       if parents.get(hit["corpus"]) == target_corpus
                        and question.get("source_path") is not None
                        and hit["source_path"] == question["source_path"]), None)
         answer_span = question.get("answer_span")
         span = next((i for i, hit in enumerate((results or [])[:top_k], 1)
-                     if answer_span and parents.get(hit.get("corpus")) == question["corpus"]
+                     if answer_span and parents.get(hit.get("corpus")) == target_corpus
                      and _normal(answer_span) in _normal(hit.get("content") or "")), None)
         rows.append({"qid": question["qid"], "kind": question["kind"],
                      "corpus": question["corpus"], "question": question["question"],

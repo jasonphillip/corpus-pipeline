@@ -195,6 +195,8 @@ cross-encoder takes precedence over Ollama reranking.
 
 ## Retrieval upgrades (2026-10)
 
+- Email-thread cleaning now keeps dense prose and Markdown anchor text, falls back for unparsed files, and can be checked without indexing with `python scripts/chunk_coverage.py <corpus> --mode email_thread`; eval build writes the parent corpus name for shadow corpora.
+
 ### Canonical dates
 
 The chunk date uses `ts`, `recording_start`, `first`, `started_at`, `date`,
