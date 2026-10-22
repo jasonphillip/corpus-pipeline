@@ -28,31 +28,61 @@ _QUOTE_START = re.compile(r"^(?:On .{5,120} wrote:|-----Original Message-----)")
 _DOCUMENT_HEADING = re.compile(r"^(#{1,3})[ \t]+(.+?)[ \t]*$")
 _FENCE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
 _EMAIL_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
-_EMAIL_TAG = re.compile(r"<[^>]+>")
+_EMAIL_TAG = re.compile(
+    r"</?(?:a|article|aside|b|blockquote|body|br|button|center|code|div|em|font|"
+    r"footer|form|h[1-6]|head|header|html|i|img|input|label|li|main|meta|nav|"
+    r"ol|p|pre|section|small|span|strong|table|tbody|td|th|thead|title|tr|u|ul)\b[^>]*>",
+    re.IGNORECASE)
 _EMAIL_BLOCK_TAG = re.compile(r"</?(?:br|div|p|tr|td|li|h[1-6])\b[^>]*>", re.IGNORECASE)
 _CSS_DECLARATION = re.compile(r"^[-\w]+\s*:\s*[^;]+;\s*$")
+_CSS_RULE = re.compile(r"(?m)^[^{}\n]{0,160}\{\s*(?:[-\w]+\s*:\s*[^{};]+;\s*)+\}[ \t]*$")
+_INVISIBLE = re.compile(r"[\u200b-\u200f\u202a-\u202e\u2060-\u206f\ufeff]")
+_MARKDOWN_LINK = re.compile(r"\[([^\]\n]+)\]\(https?://[^\s)]+\)")
+_URL = re.compile(r"https?://[^\s<>\])]+")
+_EMAIL_BOILERPLATE_LINE = re.compile(
+    r"^(?:privacy policy|terms of (?:service|use)|unsubscribe|manage (?:email )?preferences|"
+    r"view (?:this email )?in (?:your )?browser|all rights reserved|"
+    r"(?:accept|reject) (?:all )?cookies)[.! ]*$", re.IGNORECASE)
+
+
+def _alpha(text: str) -> int:
+    return sum(char.isalpha() for char in text)
+
+
+def _light_clean_email(body: str) -> str:
+    """Remove markup and invisible code while retaining every visible text line."""
+    body = re.sub(r"<(?:style|script|noscript)\b[^>]*>.*?</(?:style|script|noscript)>",
+                  "", body, flags=re.IGNORECASE | re.DOTALL)
+    body = _EMAIL_COMMENT.sub("", body)
+    body = _CSS_RULE.sub("", body)
+    body = _EMAIL_BLOCK_TAG.sub("\n", body)
+    body = unescape(_EMAIL_TAG.sub("", body))
+    body = _INVISIBLE.sub("", body)
+    return "\n".join(line.strip() for line in body.splitlines() if line.strip())
+
+
+def _clean_email_body(body: str) -> str:
+    light = _light_clean_email(body)
+    linked = _MARKDOWN_LINK.sub(r"\1", light)
+    linked = _URL.sub("", linked)
+    lines = []
+    for line in linked.splitlines():
+        line = line.strip()
+        if line and not _CSS_DECLARATION.match(line) and not _EMAIL_BOILERPLATE_LINE.match(line):
+            if _alpha(line):
+                lines.append(line)
+    cleaned = "\n".join(lines)
+    if _alpha(body) and _alpha(cleaned) < 0.4 * _alpha(body):
+        cleaned = light
+    return cleaned if _alpha(cleaned) >= 40 else ""
 
 
 def _clean_profile_body(body: str, *, email: bool = False) -> str:
     """Clean each structured body before it consumes a chunk's size budget."""
     if email:
-        body = strip_boilerplate(body)
-        body = _EMAIL_COMMENT.sub("", body)
-        body = _EMAIL_BLOCK_TAG.sub("\n", body)
-        body = unescape(_EMAIL_TAG.sub("", body))
-        lines = []
-        for line in body.splitlines():
-            line = line.strip()
-            if not line or "{" in line or "}" in line or _CSS_DECLARATION.match(line):
-                continue
-            if sum(ch.isalnum() for ch in line) < 0.35 * len(line):
-                continue
-            lines.append(line)
-        body = "\n".join(lines)
+        return _clean_email_body(body)
     cleaned = strip_boilerplate(body)
     if not cleaned or information_density(cleaned) < 0.3:
-        return ""
-    if email and sum(ch.isalnum() for ch in cleaned) < 40:
         return ""
     return cleaned
 
@@ -201,6 +231,20 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
     rows = []
     if mode == "email_thread":
         matches = list(_EMAIL_HEADER.finditer(text))
+        if not matches:
+            rows = chunk_profiled_file(path, "document", frontmatter, chunk_chars,
+                                       overlap_chars, prefix=prefix)
+            if rows:
+                for row in rows:
+                    row["metadata"]["chunk_mode"] = "document"
+                return rows
+            rows = chunk_file(path, chunk_size=chunk_chars, overlap=overlap_chars)
+            if not rows:
+                rows = [_with_prefix(text.strip(), "", {}, path)]
+                rows[0]["index"] = 0
+            for row in rows:
+                row["metadata"]["chunk_mode"] = "generic"
+            return rows
         messages = []
         for i, match in enumerate(matches):
             raw = text[match.end():matches[i + 1].start() if i + 1 < len(matches) else len(text)]
@@ -222,7 +266,7 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
                     "sender_addr": address.group(1) if address else "",
                     "message_index": index, "message_count": len(messages),
                     "conversation_id": frontmatter.get("thread_id"), "subject": subject,
-                    "channel": "email"}
+                    "channel": "email", "chunk_mode": "email_thread"}
             lead = (f"Email | Subject: {subject} | From: {sender} | Date: {stamp} | "
                     f"Message {index} of {len(messages)} | Participants: {', '.join(map(str, participants))}") if prefix else ""
             header = match.group(0) + "\n"

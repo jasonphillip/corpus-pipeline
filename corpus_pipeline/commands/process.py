@@ -123,6 +123,44 @@ def parse_frontmatter(path: Path) -> dict[str, Any]:
         return {}
 
 
+def prepare_chunks(filepath: Path, mode: str, chunk_size: int, chunk_overlap: int,
+                   chunking: dict | None = None, transcript: bool = False) -> tuple[list[dict], int]:
+    """Prepare raw chunks with the same filtering used by the indexer."""
+    chunking = chunking or {}
+    if mode != "generic" and not (transcript and "mode" not in chunking):
+        chunks = chunk_profiled_file(
+            filepath, mode, parse_frontmatter(filepath), chunk_size, chunk_overlap,
+            prefix=chunking.get("prefix", True), channel=chunking.get("channel"))
+    else:
+        chunks = chunk_file(filepath, chunk_size=chunk_size,
+                            **({"overlap": chunk_overlap} if "overlap_chars" in chunking else {}),
+                            **({"transcript": True} if transcript else {}))
+    cleaned_chunks = []
+    noise_filtered = 0
+    for chunk in chunks:
+        if mode == "generic":
+            cleaned_text = clean_chunk(chunk["content"])
+        elif transcript and "mode" not in chunking:
+            cleaned_text = clean_chunk(chunk["content"], transcript=True)
+        elif mode == "email_thread":
+            cleaned_text = chunk["content"].strip()
+        else:
+            prefix_len = chunk.get("metadata", {}).get("prefix_len", 0)
+            lead, body = chunk["content"][:prefix_len], chunk["content"][prefix_len:]
+            cleaned_body = clean_chunk(body)
+            if (cleaned_body is None and 0 < len(body.strip()) < 50 and
+                    information_density(body) >= 0.3):
+                cleaned_body = body.strip()
+            cleaned_text = lead + cleaned_body if cleaned_body is not None else None
+        if cleaned_text is not None:
+            chunk["content"] = cleaned_text
+            chunk["metadata"]["chunk_size"] = len(cleaned_text)
+            cleaned_chunks.append(chunk)
+        else:
+            noise_filtered += 1
+    return cleaned_chunks, noise_filtered
+
+
 def process_topic(topic: str, force: bool = False, only: Path | None = None):
     """Process all raw files for a topic into chunks.db.
 
@@ -285,39 +323,8 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
             if hflags:
                 flagged_sources += 1
 
-            # Chunk the file
-            if mode != "generic" and not (transcript and "mode" not in chunking):
-                chunks = chunk_profiled_file(
-                    filepath, mode, frontmatter, chunk_size, chunk_overlap,
-                    prefix=chunking.get("prefix", True), channel=chunking.get("channel"))
-            else:
-                chunks = chunk_file(filepath, chunk_size=chunk_size,
-                                    **({"overlap": chunk_overlap} if "overlap_chars" in chunking else {}),
-                                    **({"transcript": True} if transcript else {}))
-            # Profiled bodies are cleaned before packing. Keep the prefix outside
-            # this final noise gate so a subject cannot erase it.
-            cleaned_chunks = []
-            noise_filtered = 0
-            for c in chunks:
-                if mode == "generic":
-                    cleaned_text = clean_chunk(c["content"])
-                elif transcript and "mode" not in chunking:
-                    cleaned_text = clean_chunk(c["content"], transcript=True)
-                else:
-                    prefix_len = c.get("metadata", {}).get("prefix_len", 0)
-                    lead, body = c["content"][:prefix_len], c["content"][prefix_len:]
-                    cleaned_body = clean_chunk(body)
-                    if (cleaned_body is None and 0 < len(body.strip()) < 50 and
-                            information_density(body) >= 0.3):
-                        cleaned_body = body.strip()
-                    cleaned_text = lead + cleaned_body if cleaned_body is not None else None
-                if cleaned_text is not None:
-                    c["content"] = cleaned_text
-                    c["metadata"]["chunk_size"] = len(cleaned_text)
-                    cleaned_chunks.append(c)
-                else:
-                    noise_filtered += 1
-            chunks = cleaned_chunks
+            chunks, noise_filtered = prepare_chunks(filepath, mode, chunk_size,
+                                                     chunk_overlap, chunking, transcript)
 
             # Replace this source in one transaction, including an empty result.
             delete_by_source(conn, rel_path)
