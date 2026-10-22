@@ -33,8 +33,8 @@ def _normal(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip().casefold()
 
 
-def _strict_target_exists(question: dict) -> bool:
-    path = corpus_path(question["corpus"]) / "processed" / "chunks.db"
+def _strict_target_exists(question: dict, searched_corpus: str) -> bool:
+    path = corpus_path(searched_corpus) / "processed" / "chunks.db"
     try:
         with sqlite3.connect(f"file:{path}?mode=ro", uri=True) as conn:
             row = conn.execute("SELECT source_path, chunk_index, content FROM chunks WHERE id = ?",
@@ -44,6 +44,29 @@ def _strict_target_exists(question: dict) -> bool:
                     (not question.get("answer_span") or _normal(question["answer_span"]) in _normal(row[2])))
     except (sqlite3.Error, OSError):
         return False
+
+
+def parent_mapping(corpora: list[str], aliases: dict[str, str] | None = None) -> dict[str, str]:
+    """Resolve each searched corpus to the question corpus it represents."""
+    aliases = aliases or {}
+    parents = {}
+    for name in corpora:
+        parent, separator, suffix = name.rpartition("--")
+        parents[name] = aliases.get(name, parent if separator and parent and suffix else name)
+    return parents
+
+
+def parse_aliases(items: list[str]) -> dict[str, str]:
+    aliases = {}
+    for item in items:
+        shadow, separator, parent = item.partition("=")
+        if not separator or not shadow.strip() or not parent.strip():
+            raise ValueError("--alias requires SHADOW=PARENT")
+        shadow, parent = shadow.strip(), parent.strip()
+        if shadow in aliases and aliases[shadow] != parent:
+            raise ValueError(f"conflicting alias for {shadow}")
+        aliases[shadow] = parent
+    return aliases
 
 
 def parse_settings(items: list[str]) -> dict:
@@ -94,7 +117,8 @@ def rank_metrics(rows: list[dict]) -> dict:
 def evaluate_questions(questions: list[dict], search_fn=None,
                        top_k: int = 30, corpora: list[str] | None = None,
                        settings_overrides: dict | None = None,
-                       since: str | None = None, until: str | None = None) -> dict:
+                       since: str | None = None, until: str | None = None,
+                       aliases: dict[str, str] | None = None) -> dict:
     if top_k <= 0:
         raise ValueError("--top-k must be positive")
     search_fn = search_fn or real_search
@@ -103,6 +127,7 @@ def evaluate_questions(questions: list[dict], search_fn=None,
     rows = []
     for question in questions:
         selected = corpora or [question["corpus"]]
+        parents = parent_mapping(selected, aliases)
         started = time.monotonic()
         try:
             results = (search_fn(selected, question["question"], top_k, settings_overrides,
@@ -115,17 +140,19 @@ def evaluate_questions(questions: list[dict], search_fn=None,
                  "source_path": r.get("source_path"), "chunk_index": r.get("chunk_index"),
                  "score": r.get("rerank_score", r.get("rrf_score", r.get("score")))}
                 for r in (results or [])[:top_k]]
-        strict_defined = _strict_target_exists(question) if search_fn is real_search else True
+        strict_defined = (any(_strict_target_exists(question, name) for name in selected
+                              if parents[name] == question["corpus"])
+                          if search_fn is real_search else True)
         strict = next((i for i, hit in enumerate(hits, 1)
-                       if hit["corpus"] == question["corpus"]
+                       if parents.get(hit["corpus"]) == question["corpus"]
                        and str(hit["chunk_id"]) == str(question["chunk_id"])), None) if strict_defined else None
         source = next((i for i, hit in enumerate(hits, 1)
-                       if hit["corpus"] == question["corpus"]
+                       if parents.get(hit["corpus"]) == question["corpus"]
                        and question.get("source_path") is not None
                        and hit["source_path"] == question["source_path"]), None)
         answer_span = question.get("answer_span")
         span = next((i for i, hit in enumerate((results or [])[:top_k], 1)
-                     if answer_span and hit.get("corpus") == question["corpus"]
+                     if answer_span and parents.get(hit.get("corpus")) == question["corpus"]
                      and _normal(answer_span) in _normal(hit.get("content") or "")), None)
         rows.append({"qid": question["qid"], "kind": question["kind"],
                      "corpus": question["corpus"], "question": question["question"],

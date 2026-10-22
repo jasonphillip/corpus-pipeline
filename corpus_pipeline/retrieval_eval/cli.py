@@ -77,6 +77,8 @@ def _parser() -> argparse.ArgumentParser:
                                               + ", ".join(run.ENV_KEYS) + "."))
     runner.add_argument("--questions", required=True, type=Path)
     runner.add_argument("--corpora", help="Comma-separated federation; default is each question's corpus")
+    runner.add_argument("--alias", action="append", default=[], metavar="SHADOW=PARENT",
+                        help="Map a searched corpus to a question corpus; repeatable")
     runner.add_argument("--top-k", type=int, default=30)
     runner.add_argument("--since", help="Earliest chunk date: YYYY, YYYY-MM, or YYYY-MM-DD")
     runner.add_argument("--until", help="Latest chunk date, inclusive")
@@ -117,13 +119,17 @@ def main(argv: list[str] | None = None) -> int:
             if args.corpora and not corpora:
                 raise ValueError("--corpora is empty")
             settings = run.parse_settings(args.search_arg)
+            aliases = run.parse_aliases(args.alias)
             report = run.evaluate_questions(questions, top_k=args.top_k, corpora=corpora,
-                                            settings_overrides=settings, since=args.since, until=args.until)
+                                            settings_overrides=settings, since=args.since, until=args.until,
+                                            aliases=aliases)
             selected = corpora or sorted({q["corpus"] for q in questions})
+            parents = run.parent_mapping(selected, aliases)
             manifests = {name: read_manifest(name) for name in selected}
             report["config"] = {
                 "questions_path": str(args.questions.resolve()), "top_k": args.top_k,
-                "corpora": corpora, "search_args": settings,
+                "corpora": corpora, "searched_corpora": selected,
+                "parent_mapping": parents, "search_args": settings,
                 "since": args.since, "until": args.until,
                 "env_overrides": run.environment_snapshot(), "git_rev": _git_rev(),
                 "embedding": {name: manifest.get("embedding") for name, manifest in manifests.items()},

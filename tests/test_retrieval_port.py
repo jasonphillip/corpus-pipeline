@@ -173,10 +173,14 @@ def test_process_stores_profiled_chunk_metadata(tmp_path, monkeypatch):
     topic_dir = tmp_path / "fictional"
     raw = topic_dir / "raw"
     raw.mkdir(parents=True)
+    css = "<style>td.tile { width: auto; }</style>" * 60
     (raw / "thread.md").write_text(
-        "---\nsubject: Amber relay\nthread_id: fictional-thread\n---\n"
-        "## 2025-02-03 09:10 — Pat Example <pat@example.com>\n"
-        "The amber relay confirmed receipt of the fictional package.\n")
+        "---\nsubject: Privacy Policy\nthread_id: fictional-thread\n---\n"
+        "## 2025-02-03 09:10 — Pat Example <pat@example.com>\n" + css +
+        "<p>The amber relay confirmed receipt of the fictional package.</p>\n"
+        "## 2025-02-03 09:11 — Lee Example <lee@example.com>\n"
+        "<script>window.track = true;</script>"
+        "<div>The cobalt relay confirmed receipt of the fictional package.</div>\n")
     monkeypatch.setattr(process, "corpus_path", lambda _: topic_dir)
     monkeypatch.setattr(db, "corpus_path", lambda _: topic_dir)
     monkeypatch.setattr(process, "read_manifest", lambda _: {"sources": [], "chunking": {"mode": "email_thread"}})
@@ -192,12 +196,17 @@ def test_process_stores_profiled_chunk_metadata(tmp_path, monkeypatch):
     process.process_topic("fictional")
     conn = db.connect("fictional")
     try:
-        row = conn.execute("SELECT content, metadata_json FROM chunks").fetchone()
-        metadata = json.loads(row["metadata_json"])
-        assert row["content"].startswith("Email | Subject: Amber relay")
-        assert metadata["prefix_len"] > 0
-        assert metadata["ts"].startswith("2025-02-03")
-        assert metadata["conversation_id"] == "fictional-thread"
+        rows = conn.execute("SELECT content, metadata_json FROM chunks ORDER BY chunk_index").fetchall()
+        assert len(rows) == 2
+        for row in rows:
+            metadata = json.loads(row["metadata_json"])
+            assert row["content"].startswith("Email | Subject: Privacy Policy")
+            assert "<style>" not in row["content"] and "window.track" not in row["content"]
+            assert len(row["content"]) < 300
+            assert metadata["prefix_len"] > 0
+            assert metadata["chunk_size"] == len(row["content"])
+            assert metadata["ts"].startswith("2025-02-03")
+            assert metadata["conversation_id"] == "fictional-thread"
     finally:
         conn.close()
 

@@ -1,10 +1,12 @@
 """Markdown-aware chunking with section-based splitting for large files."""
 
 import re
+from html import unescape
 from pathlib import Path
 from datetime import datetime
 
 from .config import CHUNK_SIZE, CHUNK_OVERLAP, get_embedding_config
+from .content_filter import information_density, strip_boilerplate
 
 # Files under this size (bytes) are skipped as noise
 MIN_CHUNK_CHARS = 100
@@ -25,6 +27,34 @@ _SESSION_HEADER = re.compile(r"^## (\d{4}-\d{2}-\d{2} \d{2}:\d{2}) session$", re
 _QUOTE_START = re.compile(r"^(?:On .{5,120} wrote:|-----Original Message-----)")
 _DOCUMENT_HEADING = re.compile(r"^(#{1,3})[ \t]+(.+?)[ \t]*$")
 _FENCE = re.compile(r"^[ \t]{0,3}(`{3,}|~{3,})")
+_EMAIL_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+_EMAIL_TAG = re.compile(r"<[^>]+>")
+_EMAIL_BLOCK_TAG = re.compile(r"</?(?:br|div|p|tr|td|li|h[1-6])\b[^>]*>", re.IGNORECASE)
+_CSS_DECLARATION = re.compile(r"^[-\w]+\s*:\s*[^;]+;\s*$")
+
+
+def _clean_profile_body(body: str, *, email: bool = False) -> str:
+    """Clean each structured body before it consumes a chunk's size budget."""
+    if email:
+        body = strip_boilerplate(body)
+        body = _EMAIL_COMMENT.sub("", body)
+        body = _EMAIL_BLOCK_TAG.sub("\n", body)
+        body = unescape(_EMAIL_TAG.sub("", body))
+        lines = []
+        for line in body.splitlines():
+            line = line.strip()
+            if not line or "{" in line or "}" in line or _CSS_DECLARATION.match(line):
+                continue
+            if sum(ch.isalnum() for ch in line) < 0.35 * len(line):
+                continue
+            lines.append(line)
+        body = "\n".join(lines)
+    cleaned = strip_boilerplate(body)
+    if not cleaned or information_density(cleaned) < 0.3:
+        return ""
+    if email and sum(ch.isalnum() for ch in cleaned) < 40:
+        return ""
+    return cleaned
 
 
 def _with_prefix(body: str, prefix: str, metadata: dict, path: Path) -> dict:
@@ -180,25 +210,9 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
                     break
                 if not line.startswith(">"):
                     lines.append(line)
-            body = "\n".join(lines).strip()
+            body = _clean_profile_body("\n".join(lines), email=True)
             messages.append((match, body, i + 1))
-        groups = []
-        for item in messages:
-            first = groups[-1][0] if groups else item
-            subject = str(frontmatter.get("subject") or "")
-            participants = frontmatter.get("participants") or []
-            proposed_lead = (f"Email | Subject: {subject} | From: {first[0].group(2)} | "
-                             f"Date: {first[0].group(1)} | Message {first[2]} of {len(messages)} | "
-                             f"Participants: {', '.join(map(str, participants))}") if prefix else ""
-            if (groups and len(item[1]) < 200 and
-                    all(len(x[1]) < 200 for x in groups[-1]) and
-                    sum(len(x[0].group(0)) + len(x[1]) + 2 for x in [*groups[-1], item])
-                    <= chunk_chars - len(proposed_lead) - (2 if proposed_lead else 0)):
-                groups[-1].append(item)
-            else:
-                groups.append([item])
-        for group in groups:
-            match, _, index = group[0]
+        for match, body, index in messages:
             sender = match.group(2)
             address = re.search(r"<([^>]+)>", sender)
             stamp = match.group(1)
@@ -211,16 +225,18 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
                     "channel": "email"}
             lead = (f"Email | Subject: {subject} | From: {sender} | Date: {stamp} | "
                     f"Message {index} of {len(messages)} | Participants: {', '.join(map(str, participants))}") if prefix else ""
-            content = "\n\n".join(f"{x[0].group(0)}\n{x[1]}" for x in group)
-            header = match.group(0) + "\n" if len(group) == 1 else ""
-            body = content[len(header):] if header else content
-            for piece in (_pieces(body, header, max(1, chunk_chars - len(lead) - (2 if lead else 0)),
-                                  overlap_chars, separator="\n\n") if header else [content]):
-                rows.append(_with_prefix(piece, lead, info, path))
+            header = match.group(0) + "\n"
+            for piece in _pieces(body, header, max(1, chunk_chars - len(lead) - (2 if lead else 0)),
+                                 overlap_chars, separator="\n\n"):
+                rows.append(_with_prefix(piece.rstrip(), lead, info, path))
     elif mode == "chat_sessions":
         matches = list(_SESSION_HEADER.finditer(text))
-        sessions = [(m, text[m.start():matches[i + 1].start() if i + 1 < len(matches) else len(text)].strip())
-                    for i, m in enumerate(matches)]
+        sessions = []
+        for i, match in enumerate(matches):
+            raw = text[match.end():matches[i + 1].start() if i + 1 < len(matches) else len(text)]
+            body = _clean_profile_body(raw)
+            if body:
+                sessions.append((match, match.group(0) + "\n" + body))
         channel = channel or str(frontmatter.get("channel") or "chat")
         contact = str(frontmatter.get("contact") or "")
         key = str(frontmatter.get("contact_key") or "")
@@ -268,9 +284,14 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
                 if match.group(5) != "Prompt":
                     continue
                 pair_index += 1
-                prompt = blocks[i][len(match.group(0)):].strip()
+                prompt = _clean_profile_body(blocks[i][len(match.group(0)):])
                 response = (blocks[i + 1] if i + 1 < len(matches) and
                             matches[i + 1].group(5) == "Response" else "")
+                if response:
+                    response_body = _clean_profile_body(response[len(matches[i + 1].group(0)):])
+                    response = "## Response\n" + response_body if response_body else ""
+                if not prompt and not response:
+                    continue
                 pair = f"## Prompt\n{prompt}" + (f"\n\n{response}" if response else "")
                 pair_info = {**info, "pair_index": pair_index}
                 available = max(1, chunk_chars - len(lead) - (2 if lead else 0))
@@ -289,6 +310,12 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
             blocks = [text.strip()]
         packed = []
         for block in blocks:
+            role_match = _ROLE_HEADER.match(block)
+            header = role_match.group(0) if role_match else ""
+            body = _clean_profile_body(block[len(header):] if header else block)
+            if not body:
+                continue
+            block = header + "\n" + body if header else body
             if packed and len(packed[-1] + "\n\n" + block) <= chunk_chars - len(lead) - 2:
                 packed[-1] += "\n\n" + block
             else:
@@ -307,6 +334,9 @@ def chunk_profiled_file(file_path: str | Path, mode: str, frontmatter: dict,
         stamp = str(frontmatter.get("created_at") or frontmatter.get("date") or "")
         base_lead = f"Document: {title} | Path: {tail} | Date: {stamp[:10]}" if prefix else ""
         for section, heading_path in _document_sections(text):
+            section = _clean_profile_body(section)
+            if not section:
+                continue
             lead = base_lead
             if prefix and heading_path:
                 lead += f" | Section: {' > '.join(heading_path)}"

@@ -89,7 +89,7 @@ def _embed_with_fallback(texts: list[str]) -> tuple[list[bytes | None], int]:
 
 
 from ..config import corpus_path, get_embedding_config
-from ..content_filter import clean_chunk
+from ..content_filter import clean_chunk, information_density
 from ..corpus_db import (
     connect, init_schema, insert_chunk, delete_by_source, get_stats,
     get_source_hash, upsert_source, content_hash,
@@ -294,14 +294,26 @@ def process_topic(topic: str, force: bool = False, only: Path | None = None):
                 chunks = chunk_file(filepath, chunk_size=chunk_size,
                                     **({"overlap": chunk_overlap} if "overlap_chars" in chunking else {}),
                                     **({"transcript": True} if transcript else {}))
-            # Clean chunks — strip boilerplate and check density
+            # Profiled bodies are cleaned before packing. Keep the prefix outside
+            # this final noise gate so a subject cannot erase it.
             cleaned_chunks = []
             noise_filtered = 0
             for c in chunks:
-                cleaned_text = clean_chunk(c["content"],
-                                           **({"transcript": True} if mode != "generic" else {}))
+                if mode == "generic":
+                    cleaned_text = clean_chunk(c["content"])
+                elif transcript and "mode" not in chunking:
+                    cleaned_text = clean_chunk(c["content"], transcript=True)
+                else:
+                    prefix_len = c.get("metadata", {}).get("prefix_len", 0)
+                    lead, body = c["content"][:prefix_len], c["content"][prefix_len:]
+                    cleaned_body = clean_chunk(body)
+                    if (cleaned_body is None and 0 < len(body.strip()) < 50 and
+                            information_density(body) >= 0.3):
+                        cleaned_body = body.strip()
+                    cleaned_text = lead + cleaned_body if cleaned_body is not None else None
                 if cleaned_text is not None:
                     c["content"] = cleaned_text
+                    c["metadata"]["chunk_size"] = len(cleaned_text)
                     cleaned_chunks.append(c)
                 else:
                     noise_filtered += 1

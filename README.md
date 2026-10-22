@@ -232,6 +232,8 @@ Set `chunking.mode` to `generic`, `transcript`, `email_thread`,
 Structured chunks carry a prefix and `prefix_len`, plus per-chunk `ts` and
 `conversation_id` when the source provides them; the YAML or JSON mapping
 contains corpus names, with no names built into the script.
+Structured modes remove boilerplate and low-density body text before packing, while the final noise gate preserves the prefix.
+Email mode also removes HTML and CSS noise; bodies under 40 alphanumeric characters retain only the message header.
 Transcript mode keeps each `## Prompt` with its `## Response` when it fits, records `pair_index`, and repeats a `Prompt:` header on oversized pieces. Document mode defaults to 2500 characters with 250 overlap, splits at H1-H3 outside fenced code, and stores `heading_path` beside a `Section:` prefix. LongMemEval motivates keeping rounds together (https://arxiv.org/abs/2410.10813); Snowflake motivates section-aware splits (https://www.snowflake.com/en/blog/engineering/impact-retrieval-chunking-finance-rag/).
 
 ```bash
@@ -251,6 +253,7 @@ questions through `EVAL_LLM_URL=http://127.0.0.1:11434/v1` and
 nDCG, with `--since` and `--until` passed to retrieval.
 `corpus eval compare` uses a paired bootstrap on shared question IDs; use
 `--append-regression /tmp/regressions.jsonl` on build for known queries.
+For shadow indexes named `<parent>--<suffix>`, eval scores hits against `<parent>`; repeat `--alias shadow=parent` for other names, and each run records the mapping.
 
 ```bash
 corpus eval build --corpus my-docs --n 120 --seed 7 --out /tmp/my-docs-questions.jsonl
