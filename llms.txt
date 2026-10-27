@@ -4,7 +4,7 @@
 
 ## Project documentation
 
-- [README.md](README.md): Defines the architecture, supported workflows, storage layout, and operational limits.
+- [README.md](README.md): Defines the architecture, supported workflows, storage layout, and operating details.
 - [LICENSE](LICENSE): Contains the MIT license terms.
 
 ## Evaluation

@@ -1,29 +1,14 @@
 # corpus-pipeline
 
-This project helps one person index their own documents for search on one machine with local models.
-
-## What this is, in one verifiable line
-
-This repo turns a directory of documents into a local hybrid-search corpus in one SQLite file, combining FTS5 keyword scores with sqlite-vec vector scores and an optional local reranker.
+This project turns a directory of documents into a local hybrid-search corpus in one SQLite file, combining FTS5 keyword scores with sqlite-vec vector scores and an optional local reranker.
 
 The default mechanism is normalized weighted fusion of the two candidate lists.
 
-Verify the mechanics with `python3 -m pytest tests/ -q`, then try the quickstart on `examples/docs/`.
+## Measured result
 
-The canonical source is https://github.com/jasonphillip/corpus-pipeline
+The [2026-10-12 retrieval evaluation](eval/results/2026-10-12-4117b89.md) used 30 queries and 45 synthetic documents with a local embedding model. With OR keyword matching, hybrid search reached 1.000 Recall@5 and 0.987 nDCG@10; BM25 alone reached 0.950 Recall@5.
 
-Extracted from a private working tree on 2026-08-28.
-
-## What works today and limits
-
-The pipeline acquires, chunks, and indexes documents. Search combines FTS5 keyword results with cosine vectors. Optional local models expand queries and rerank results.
-Deduplication stays within each source. Deleting a raw file does not remove its indexed chunks.
-Legacy L2 vector indexes need the [documented rebuild](#rebuilding-a-legacy-l2-index).
-The BM25 keyword leg uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
-Transcript chunking, metadata filters, RRF, conversation caps, and passage display
-are opt-in. Query embedding now waits up to 120 seconds by default. A passage
-window is a snippet, not the full message.
-[Retrieval evaluation](#retrieval-evaluation) records the earlier AND behavior.
+On a 120-question synthetic set over a 126k-chunk personal email index, the exact-phrase tier lifted phrase-query Recall@1 from 0.03 to 0.37 and overall MRR from 0.26 to 0.35 without a reranker. These are the author's private data, synthetic questions, one run.
 
 ## Quickstart
 
@@ -50,25 +35,26 @@ corpus search my-docs --top-k 3 "How does hybrid retrieval combine BM25 and cosi
 
 The expected top source is `example/2024-06-retrieval.md`.
 Its text explains weighted fusion of FTS5 BM25 and cosine vector results.
-Scores vary by model and build. This three-file corpus does not establish retrieval quality.
+Scores vary by model and build.
 The corpus is below the default 500-chunk smart-mode threshold, so Ollama reranking does not run.
 `examples/quickstart.txt` repeats the commands and shows abbreviated output.
 
-### CPU fixture run
+## Notes
 
+Verify the mechanics with `python3 -m pytest tests/ -q`, then try the quickstart on `examples/docs/`.
+The canonical source is https://github.com/jasonphillip/corpus-pipeline
 The test suite uses a fake embedder to exercise indexing, search, update, rollback, and rerun mechanics.
-Its CPU results say nothing about retrieval quality with a real embedding model.
-
-## Measured result
-
-The [retrieval evaluation](#retrieval-evaluation) used 30 queries and 45 synthetic documents with a local embedding model.
-Its [measured results](eval/results/2026-10-12-833796a.md) show full vector recall on this easy set.
-The new processing and search options are opt-in and were not covered by that evaluation.
+The new processing and search options are opt-in. The [retrieval evaluation](#retrieval-evaluation) records the earlier AND behavior.
+Deduplication stays within each source. Deleting a raw file does not remove its indexed chunks.
+Legacy L2 vector indexes need the [documented rebuild](#rebuilding-a-legacy-l2-index).
+The BM25 keyword leg uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
+Transcript chunking, metadata filters, RRF, conversation caps, and passage display are opt-in. Query embedding waits up to 120 seconds by default. A passage window shows a snippet of the message.
+Extracted from a private working tree on 2026-08-28.
 
 ## Design decision
 
 Each corpus uses one SQLite file with FTS5, sqlite-vec, and weighted fusion.
-This serves a single-box setup with no service beyond the embedder. The tradeoff is a small corpus per file and no distributed index.
+This serves a single-box setup with no service beyond the embedder. Each corpus keeps a local index in one file, with no distributed index.
 
 ## How this was built
 
@@ -248,7 +234,7 @@ corpus shadow my-docs candidate --mapping examples/profiles.yml
 
 ### Retrieval evaluation
 
-The context writer now stores a situating sentence and a newline-separated `Entities:` line, capped together at 500 characters. Its prompt version is `context-v2-entities`; the LongMemEval paper above discusses fact-augmented retrieval keys, but this repo has no measured gain for this change.
+The context writer now stores a situating sentence and a newline-separated `Entities:` line, capped together at 500 characters. Its prompt version is `context-v2-entities`; the LongMemEval paper above discusses fact-augmented retrieval keys.
 
 `corpus eval build` generates synthetic whole, late, phrase, and temporal
 questions through `EVAL_LLM_URL=http://127.0.0.1:11434/v1` and
@@ -284,13 +270,6 @@ corpus context prune --corpus my-docs
 CORPUS_CONTEXT_TOPICS=my-docs scripts/context_nightly.sh
 ```
 
-### Measured on private data
-
-On a 120-question synthetic set over a 126k-chunk personal email index, the
-exact-phrase tier lifted phrase-query Recall@1 from 0.03 to 0.37 and overall
-MRR from 0.26 to 0.35 without a reranker.
-These are the author's private data, synthetic questions, one run.
-
 ## Retrieval evaluation
 
 The [evaluation method](eval/README.md) checks passages and compares document-level retrieval modes.
@@ -320,7 +299,7 @@ A natural question such as "How does the admin API authenticate requests?" match
 The keyword leg now uses OR matching with a small common-word filter. Strict all-terms matching remains available via `search.fts_match: all`.
 Mean Recall@5 for BM25 alone rose from 0.250 to 0.950. Hybrid nDCG@10 moved from 0.985 to 0.987.
 Vector and hybrid recall every judged document on this set. Reranking adds 0.007 nDCG@10 at about 40 times the p50 latency.
-The rerank step's latency halved between runs because of a warm Ollama cache. That cause is outside the query change, so the latency columns are not comparable between the two tables.
+The rerank step's latency halved between runs with a warm Ollama cache. The latency columns reflect different cache states.
 
 A [2026-10-16 rerun](eval/results/2026-10-16-10ef530.md) at git revision `10ef530`, after the opt-in transcript, filter and search-setting options landed, reproduced every Recall and nDCG value of the 2026-10-12 rerun with default settings.
 Its hybrid p50 fell to 2.33 ms because query vectors are now cached per process and the vector mode embeds the same queries first, so that figure excludes the embedding call.
@@ -331,7 +310,7 @@ Run the evaluation from the repository root with the same local services.
 CORPUS_EMBED_PROVIDER=openai CORPUS_EMBED_URL=http://localhost:8000/v1/embeddings CORPUS_OPENAI_EMBED_MODEL=Qwen3-Embedding-4B CORPUS_OPENAI_EMBED_DIMS=2560 CORPUS_TEST_OLLAMA_URL=http://localhost:11434 CORPUS_TRIAGE_MODEL=qwen3:14b CORPUS_SCORING_MODEL=qwen3:14b python3 eval/run_eval.py
 ```
 
-The corpus and judgments are synthetic and self-authored. These numbers show the mechanics on an easy set and are not a benchmark.
+The corpus and judgments are synthetic and self-authored. These numbers show the mechanics on an easy set.
 
 ## Tests
 
